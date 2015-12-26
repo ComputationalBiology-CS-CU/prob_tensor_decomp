@@ -1,0 +1,64 @@
+wabsdev.lo: wabsdev.c ../config.h \
+  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk/usr/include/math.h \
+  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk/usr/include/sys/cdefs.h \
+  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk/usr/include/sys/_symbol_aliasing.h \
+  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk/usr/include/sys/_posix_availability.h \
+  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk/usr/include/Availability.h \
+  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk/usr/include/AvailabilityInternal.h \
+  ../gsl/gsl_statistics.h ../gsl/gsl_statistics_long_double.h \
+  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/../lib/clang/7.0.2/include/stddef.h \
+  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/../lib/clang/7.0.2/include/__stddef_max_align_t.h \
+  ../gsl/gsl_statistics_double.h ../gsl/gsl_statistics_float.h \
+  ../gsl/gsl_statistics_ulong.h ../gsl/gsl_statistics_long.h \
+  ../gsl/gsl_statistics_uint.h ../gsl/gsl_statistics_int.h \
+  ../gsl/gsl_statistics_ushort.h ../gsl/gsl_statistics_short.h \
+  ../gsl/gsl_statistics_uchar.h ../gsl/gsl_statistics_char.h \
+  ../templates_on.h wabsdev_source.c ../templates_off.h
+
+../config.h:
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk/usr/include/math.h:
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk/usr/include/sys/cdefs.h:
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk/usr/include/sys/_symbol_aliasing.h:
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk/usr/include/sys/_posix_availability.h:
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk/usr/include/Availability.h:
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk/usr/include/AvailabilityInternal.h:
+
+../gsl/gsl_statistics.h:
+
+../gsl/gsl_statistics_long_double.h:
+
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/../lib/clang/7.0.2/include/stddef.h:
+
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/../lib/clang/7.0.2/include/__stddef_max_align_t.h:
+
+../gsl/gsl_statistics_double.h:
+
+../gsl/gsl_statistics_float.h:
+
+../gsl/gsl_statistics_ulong.h:
+
+../gsl/gsl_statistics_long.h:
+
+../gsl/gsl_statistics_uint.h:
+
+../gsl/gsl_statistics_int.h:
+
+../gsl/gsl_statistics_ushort.h:
+
+../gsl/gsl_statistics_short.h:
+
+../gsl/gsl_statistics_uchar.h:
+
+../gsl/gsl_statistics_char.h:
+
+../templates_on.h:
+
+wabsdev_source.c:
+
+../templates_off.h:
