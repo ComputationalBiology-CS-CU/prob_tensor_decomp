@@ -11,10 +11,10 @@ __Bayesian_Probabilistic_Tensor_Decomposition_with_Spike_and_Slab_Prior__: This 
 ####Content of BayesianProbTensorDecomp
 - basic.cpp: This is adopted from Shuo Yang's eQTL project. It contains some useful basic functions.
 - global_var.hpp: This header file defines all the global variables.
-- log_likehood.cpp: This file contains all the functions to compute the loglikihood for each distribution.
-- main.cpp: This file initialize the global variable and contains the main function.
+- log_likehood.cpp: This file contains all the functions to compute the loglikihood for each distribution. (Need to find a way to construct Wishart pdf)
+- main.cpp: This file initialize the global variable and contains the main function. (in progress)
 - sampler.cpp: This file contains all the functions to sample different distribution.
-- tensor.cpp: This file contains functions to prepare dataset. 
+- tensor.cpp: This file contains functions to prepare dataset. (in progress) 
 
 
 Last edited by Chuqiao Ren 01/04/2016.
