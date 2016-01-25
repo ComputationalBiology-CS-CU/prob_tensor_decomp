@@ -1,6 +1,6 @@
 ###C++ version of the __Bayesian Probabilistic Tensor Decompositions__
 
-_Based on the code wrote by Shuo in the python folder_
+_Based on the code wrote by Shuo in the python folder_ \n
 Note: This code is the Gaussian distribution portion of the overall graphical model. The Spike-and-Slab Sparsity prior on gene dimension will be added (hopefully) in the future.
 
 ####Hierarchy of the folder
