@@ -26,6 +26,8 @@
 #include <random>
 #include <fstream>
 #include <time.h>
+#include <fstream>
+#include <sstream>
 
 //Include matrix headers
 #include <gsl/gsl_matrix.h>
@@ -84,13 +86,12 @@ int data_prepare(){
     
     //Get all the individuals
     count = 0;
-    int index_tissue;
     char filename_indiv[100];
     string header = "/Users/rachelren/Documents/Columbia_CS_Research/expression_by_etissue/tissue_";
     string end = ".txt";
     FILE * file_in_indiv;
     for (int i = 0; i < n_tissue; i++){
-        index_tissue = i + 1;
+        int index_tissue = i + 1;
         string name_tmp = header + to_string(index_tissue) + end;
         //convert name_tmp to char array
         strncpy(filename_indiv, name_tmp.c_str(), sizeof(filename_indiv));
@@ -104,12 +105,13 @@ int data_prepare(){
         char input_indiv[input_length_indiv];
         fgets(input_indiv, input_length_indiv, file_in_indiv);
         trim(input_indiv); //NOTE: Need to adapt from Shuo's code!!!!
-        const char * sep = "\t";
+        const char * sep = "\t\n";
         char * p;
         p = strtok(input_indiv, sep);
-        int iter = 0;
         while (p != NULL) {
-            if (iter != 0){
+            string s(p);
+            if (s.compare("Name") != 0){
+                //Skip the first one
                 string id = get_individual_id(p);
                 unordered_map<string, int>::const_iterator got = individual_rep.find(id);
                 if (got == individual_rep.end()){
@@ -118,8 +120,8 @@ int data_prepare(){
                 }
             }
             p = strtok(NULL, sep);
-            iter++;
         }
+        delete[] p;
         fclose(file_in_indiv);
     }
     n_individual = count + 1;
@@ -140,14 +142,64 @@ int data_prepare(){
     fclose(file_in_gene);
     n_gene = count;
     
+    //Spring edited started
+    
     //Initializa the empty tensor first of all
+    tensor_d dataset(n_individual, gene_d(n_gene, tissue_d(n_tissue)));
+    tensor_d markerset(n_individual, gene_d(n_gene, tissue_d(n_tissue)));
+    
+    //Get all samples and fill them into the empty tensor and the marker tensor
+    
+    //Now we try another way to handle file reading
+    //string header = "/Users/rachelren/Documents/Columbia_CS_Research/expression_by_etissue/tissue_";
+    //string end = ".txt";
+    
+    for (int k = 0; k < n_tissue; k++){
+        int index_tissue = k + 1;
+        string name_tmp = header + to_string(index_tissue) + end;
+        ifstream inFile(name_tmp);
+        if (!inFile) {
+            cerr << "File not found." << endl;
+            return -1;
+        }
+        unordered_map<string, vector<double> > rep_temp;
+        unordered_map<int, string> index_individual_map;
+        
+        //Read the first line
+        string line;
+        getline(inFile, line);
+        char *cline = new char[line.length() + 1];
+        strcpy(cline, line.c_str());
+        trim(cline);
+        
+        const char * sep = "\t\n";
+        char * p;
+        p = strtok(cline, sep);
+        int iter = 1;
+        while (p!= NULL) {
+            string s(p);
+            if (s.compare("Name") != 0){
+                //Skip the first one
+                string individual = get_individual_id(p);
+                auto search = rep_temp.find(individual);
+                if (search != rep_temp.end()) {
+                    continue;
+                }
+                vector<double> list;
+                rep_temp[individual] = list;
+                index_individual_map[iter] = individual;
+            }
+            iter++;
+        }
+        
+        delete [] cline;
+        
+        //Read the rest of the file line by line
+        
+    }
+    
+    
     //To be completed!!!!
     
     return 0;
 }
-
-
-
-
-
-
