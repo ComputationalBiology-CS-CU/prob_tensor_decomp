@@ -313,7 +313,7 @@ def sampler_Gamma(para1, para2):
 
 ## ==== sampling Beta
 def sampler_beta(a, b):
-    return np.random.beta(a, b)
+	return np.random.beta(a, b)
 
 ## ==== sampling Bernoulli
 def sampler_bernoulli(p, size):
@@ -333,6 +333,10 @@ def sampler_factor(num_factor):
 	global n_factor
 	global alpha
 
+	# We define that
+	# 	dimension 1: tissue
+	# 	dimension 2: individual
+	# 	dimension 3: gene
 
 	# num_factor
 	dimension = 0
@@ -395,21 +399,27 @@ def sampler_factor(num_factor):
 				index3 = hash_temp[2]
 				if markerset[index1][index2][index3] == 0:
 					continue
-				array = [0] * n_factor
-				for count in range(n_factor):
-					array[count] = fm[num_factor_1][j][count] * fm[num_factor_2][k][count]
-				for count1 in range(n_factor):
-					for count2 in range(n_factor):
-						precision_matrix[count1][count2] += alpha * array[count1] * array[count2]
+				array = np.multiply(fm[num_factor_1][j], fm[num_factor_2][k])
+				# array = [0] * n_factor
+				# for count in range(n_factor):
+				# 	array[count] = fm[num_factor_1][j][count] * fm[num_factor_2][k][count]
+				# for count1 in range(n_factor):
+				# 	for count2 in range(n_factor):
+				# 		precision_matrix[count1][count2] += alpha * array[count1] * array[count2]
+				precision_matrix = alpha*np.dot(np.array([array]).T, np.array([array]))
 		cov = inv(precision_matrix)
 
 
 		#== mean array
 		mean = [0] * n_factor
 		mean = np.array(mean)
-		for count1 in range(n_factor):
-			for count2 in range(n_factor):
-				mean[count1] += prior[num_factor][0][count2] * prior[num_factor][1][count1][count2]
+		# for count1 in range(n_factor):
+		# 	for count2 in range(n_factor):
+		# 		mean[count1] += prior[num_factor][0][count2] * prior[num_factor][1][count1][count2]
+
+		#mean = np.dot(prior[num_factor][0], prior[num_factor][1].T)
+		mean = np.dot(prior[num_factor][0], prior[num_factor][1])
+
 		for j in range(dimension1):
 			for k in range(dimension2):
 				# re-arrange the three dimension, for querying original dataset
@@ -419,24 +429,29 @@ def sampler_factor(num_factor):
 				index3 = hash_temp[2]
 				if markerset[index1][index2][index3] == 0:
 					continue
-				array = [0] * n_factor
-				for count in range(n_factor):
-					array[count] = fm[num_factor_1][j][count] * fm[num_factor_2][k][count]
-				R = dataset[index1][index2][index3]
-				for count in range(n_factor):
-					mean[count] += alpha * R * array[count]
+				# array = [0] * n_factor
+				# for count in range(n_factor):
+				# 	array[count] = fm[num_factor_1][j][count] * fm[num_factor_2][k][count]
+				# R = dataset[index1][index2][index3]
+				# for count in range(n_factor):
+				# 	mean[count] += alpha * R * array[count]
+				array = np.multiply(fm[num_factor_1][j], fm[num_factor_2][k])
+				mean = np.add(alpha*dataset[index1][index2][index3] * array, mean)
 		
-		array = [0] * n_factor
-		array = np.array(array)
-		for count1 in range(n_factor):
-			for count2 in range(n_factor):
-				array[count1] += mean[count2] * cov[count1][count2]
-		mean = array
+		# array = [0] * n_factor
+		# array = np.array(array)
+		# for count1 in range(n_factor):
+		# 	for count2 in range(n_factor):
+		# 		array[count1] += mean[count2] * cov[count1][count2]
+		# mean = array
+		mean = np.dot(mean, cov.T)
 
 
 		#== sampling
 		fm[num_factor][i] = sampler_MVN(mean, cov)
 
+
+	#TODO 3/25: need to optimize code below!!!
 
 	# DEBUG
 	print "now we are sampling the prior..."
@@ -527,7 +542,7 @@ def sampler_factor_sparsity():
 	global sparsity_hyper_prior
 	global maxIter
 
-    #Only gene dimension will have sparsity prior
+	#Only gene dimension will have sparsity prior
 
 	dimension = n_gene
 	dimension1 = n_individual
@@ -574,13 +589,13 @@ def sampler_factor_sparsity():
 		print "out of",
 		print dimension
         
-        factor_ind = []
-        z = sparsity_prior[2]
-        for i in range(len(z[dim])):
-        	if (z[dim][i] == 1):
-        		factor_ind.append(i)
+		factor_ind = []
+		z = sparsity_prior[2]
+		for i in range(len(z[dim])):
+			if (z[dim][i] == 1):
+				factor_ind.append(i)
 
-	    #== precision_matrix
+		#== precision_matrix
 		precision_matrix = []
 		for count1 in range(len(factor_ind)):
 			count1_new = factor_ind[count1]
