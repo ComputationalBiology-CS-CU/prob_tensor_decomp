@@ -431,7 +431,7 @@ def sampler_factor(factor_id):
 			mean = np.add(alpha * dataset[index1][index2] * fmlist[ids[0]][j], mean)
 
 		
-
+		'''
 		for j in range(dimension1):
 				# re-arrange the three dimension, for querying original dataset
 			hash_temp = {factor_id: i, ids[0]: j}
@@ -449,7 +449,7 @@ def sampler_factor(factor_id):
 				
 			#array = np.multiply(fmlist[ids[0]][j], fmlist[ids[1]][k])
 			mean = np.add(alpha * dataset[index1][index2] * fmlist[ids[0]][j], mean)
-		
+		'''
 
 		'''
 		array = [0] * n_factor
@@ -485,6 +485,7 @@ def sampler_factor(factor_id):
 	for i in range(dimension[factor_id]):
 		for j in range(n_factor):
 			factor_mean[j] += fmlist[factor_id][i][j]
+	
 	for i in range(n_factor):
 		factor_mean[i] = factor_mean[i] * 1.0 / dimension[factor_id]
 
@@ -502,7 +503,7 @@ def sampler_factor(factor_id):
 	cov_matrix = inv(hyper_prior[factor_id][0])
 	for count1 in range(n_factor):
 		for count2 in range(n_factor):
-				cov_matrix[count1][count2] += dimension[factor_id] * factor_var[count1][count2]
+			cov_matrix[count1][count2] += dimension[factor_id] * factor_var[count1][count2]
 	temp = hyper_prior[factor_id][3] * dimension[factor_id] / ( hyper_prior[factor_id][3] + dimension[factor_id] )
 	for count1 in range(n_factor):
 		for count2 in range(n_factor):
@@ -526,8 +527,6 @@ def sampler_factor(factor_id):
 	# beta new
 	beta = hyper_prior[factor_id][3] + dimension[factor_id]
 	precision_matrix = beta * prior[factor_id][1]
-	print prior[0][1]
-	print precision_matrix
 	cov = inv(precision_matrix)
 
 	# mean
@@ -747,10 +746,10 @@ if __name__ == '__main__':
 		scale = np.array(scale)
 		'''
 		scale = np.identity(n_factor)
-		hyper_prior[n].append(scale)
-		hyper_prior[n].append(n_factor)		# TODO: tunable
-		hyper_prior[n].append(0)		# TODO: tunable
-		hyper_prior[n].append(1)		# TODO: tunable
+		hyper_prior[n].append(scale)    # lambda
+		hyper_prior[n].append(n_factor)		# TODO: tunable   v_0
+		hyper_prior[n].append(0)		# TODO: tunable	 mu_0
+		hyper_prior[n].append(1)		# TODO: tunable  kappa_0
 
 
 	#== the prior of MVN (mean and precision matrix)
