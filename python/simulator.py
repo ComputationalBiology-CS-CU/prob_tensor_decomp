@@ -211,16 +211,20 @@ def calc_corr (col1, col2):
     #TODO!
     return
 
-def simulation(use_spike, smallMatrix):
+def simulation(use_spike, smallMatrix, tensor):
     global n_gene
     global n_individual
+    global n_tissue
+    global n_factor
 
     if smallMatrix:
-        n_gene = 500
-        n_individual = 10
-        n_factor = 5
+        n_gene = 5000
+        n_individual = 100
+        n_tissue = 20
+        n_factor = 10
 
-    if not smallMatrix:
+    if (not smallMatrix and not tensor):
+        #TODO: Need to add ability to get n_tissue
         data_prepare()   # get global variables n_gene and n_individual
         ##================================
         ##==== initialize global variables
@@ -232,6 +236,9 @@ def simulation(use_spike, smallMatrix):
     # DEBUG
     print "gene has ", n_gene
     print "individual has ", n_individual
+
+    if tensor:
+        print "tissue has ", n_tissue
 
     #initialize normal wishart parameter
     mu = []
@@ -258,32 +265,69 @@ def simulation(use_spike, smallMatrix):
     #DEBUG
     print "now start simulation..."
 
-    if (useSpike):
+    if not tensor:
+
+        if (useSpike):
+            #DEBUG
+            print "Start Spike and Slab simulation..."
+
+            v = simulator_spike_slab()
+
+            #DEBUG
+            print "finish Spike and Slab simulation..."
+
+            #DEBUG
+            print "Start MVN simulation..."
+
+            u = simulator_MVN(n_individual, False)
+
+            #DEBUG
+            print "finish MVN simulation..."
+
+        else:
+            v = simulator_MVN(n_gene, True)
+            u = simulator_MVN(n_individual, False)
+
+
         #DEBUG
-        print "Start Spike and Slab simulation..."
+        print "matrix multiplication..."
 
-        v = simulator_spike_slab()
-
-        #DEBUG
-        print "finish Spike and Slab simulation..."
-
-        #DEBUG
-        print "Start MVN simulation..."
-
-        u = simulator_MVN(n_individual, False)
-
-        #DEBUG
-        print "finish MVN simulation..."
+        product = np.dot(u, v).T
 
     else:
-        v = simulator_MVN(n_gene, True)
-        u = simulator_MVN(n_individual, False)
+        if (useSpike):
+            #DEBUG
+            print "Start Spike and Slab simulation..."
+
+            v = simulator_spike_slab()
+
+            #DEBUG
+            print "finish Spike and Slab simulation..."
+
+            #DEBUG
+            print "Start MVN simulation..."
+
+            u = simulator_MVN(n_individual, True)
+            t = simulator_MVN(n_tissue, True)
+
+            #DEBUG
+            print "finish MVN simulation..."
+
+        else:
+            v = simulator_MVN(n_gene, True)
+            u = simulator_MVN(n_individual, True)
+            t = simulator_MVN(n_tissue, True)
 
 
-    #DEBUG
-    print "matrix multiplication..."
+        #DEBUG
+        print "tensor multiplication..."
 
-    product = np.dot(u, v).T
+        vs = [v[0], u[0], t[0]]
+        product = reduce(np.multiply, np.ix_(*vs))
+
+        for i in xrange(1,n_factor):
+            vs = [v[i], u[i], t[i]]
+            product += reduce(np.multiply, np.ix_(*vs))
 
     return product
 

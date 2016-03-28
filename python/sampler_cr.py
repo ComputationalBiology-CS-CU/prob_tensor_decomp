@@ -22,6 +22,7 @@ from scipy.stats import norm
 from scipy.stats import bernoulli
 import math
 from numpy import linalg as LA
+import simulator
 
 
 
@@ -188,6 +189,11 @@ def data_prepare():
 				markerset[index][count][k] = 1
 
 	return
+
+def data_prepare_simulation(useSpike, smallMatrix):
+	#This function will prepare data from simulation data
+
+	dataset = simulator.simulation(useSpike, smallMatrix, True)
 
 
 
@@ -406,13 +412,13 @@ def sampler_factor(num_factor):
 				# for count1 in range(n_factor):
 				# 	for count2 in range(n_factor):
 				# 		precision_matrix[count1][count2] += alpha * array[count1] * array[count2]
-				precision_matrix = alpha*np.dot(np.array([array]).T, np.array([array]))
+		precision_matrix = np.add(precision_matrix, alpha*np.dot(np.array([array]).T, np.array([array])))
 		cov = inv(precision_matrix)
 
 
 		#== mean array
-		mean = [0] * n_factor
-		mean = np.array(mean)
+		# mean = [0] * n_factor
+
 		# for count1 in range(n_factor):
 		# 	for count2 in range(n_factor):
 		# 		mean[count1] += prior[num_factor][0][count2] * prior[num_factor][1][count1][count2]
@@ -451,7 +457,6 @@ def sampler_factor(num_factor):
 		fm[num_factor][i] = sampler_MVN(mean, cov)
 
 
-	#TODO 3/25: need to optimize code below!!!
 
 	# DEBUG
 	print "now we are sampling the prior..."
@@ -469,32 +474,40 @@ def sampler_factor(num_factor):
 
 
 	# factor_mean
-	factor_mean = np.array([0] * n_factor)
-	for i in range(dimension):
-		for j in range(n_factor):
-			factor_mean[j] += fm[num_factor][i][j]
-	for i in range(n_factor):
-		factor_mean[i] = factor_mean[i] * 1.0 / dimension
+
+	# factor_mean = np.array([0] * n_factor)
+	# for i in range(dimension):
+	# 	for j in range(n_factor):
+	# 		factor_mean[j] += fm[num_factor][i][j]
+	# for i in range(n_factor):
+	# 	factor_mean[i] = factor_mean[i] * 1.0 / dimension
+	factor_mean = np.average(fm[num_factor], axis = 0)
 
 	# factor_var
 	factor_var = np.zeros((n_factor, n_factor))
 	for i in range(dimension):
-		for count1 in range(n_factor):
-			for count2 in range(n_factor):
-				factor_var[count1][count2] += (fm[num_factor][i][count1] - factor_mean[count1]) * (fm[num_factor][i][count2] - factor_mean[count2])
+		# for count1 in range(n_factor):
+		# 	for count2 in range(n_factor):
+		# 		factor_var[count1][count2] += (fm[num_factor][i][count1] - factor_mean[count1]) * (fm[num_factor][i][count2] - factor_mean[count2])
+		factor_var += np.dot((fm[num_factor][i] - factor_mean).T, (fm[num_factor][i] - factor_mean))
+
+	#I think the following code is redundant
+	'''
 	for count1 in range(n_factor):
 		for count2 in range(n_factor):
 				factor_var[count1][count2] = factor_var[count1][count2] * 1.0 / dimension
-
+	'''
 	# cov_matrix
 	cov_matrix = inv(hyper_prior[num_factor][0])
-	for count1 in range(n_factor):
-		for count2 in range(n_factor):
-				cov_matrix[count1][count2] += dimension * factor_var[count1][count2]
+	# for count1 in range(n_factor):
+	# 	for count2 in range(n_factor):
+	# 			cov_matrix[count1][count2] += dimension * factor_var[count1][count2]
+	cov_matrix = cov_matrix + factor_var
 	temp = hyper_prior[num_factor][3] * dimension / ( hyper_prior[num_factor][3] + dimension )
-	for count1 in range(n_factor):
-		for count2 in range(n_factor):
-				cov_matrix[count1][count2] += temp * (hyper_prior[num_factor][2][count1] - factor_mean[count1]) * (hyper_prior[num_factor][2][count2] - factor_mean[count2])
+	# for count1 in range(n_factor):
+	# 	for count2 in range(n_factor):
+	# 			cov_matrix[count1][count2] += temp * (hyper_prior[num_factor][2][count1] - factor_mean[count1]) * (hyper_prior[num_factor][2][count2] - factor_mean[count2])
+	cov_matrix = cov_matrix + temp * np.dot((hyper_prior[num_factor][2] - factor_mean).T, (hyper_prior[num_factor][2] - factor_mean))
 	precision_matrix = inv(cov_matrix)
 
 	# df new
@@ -560,12 +573,12 @@ def sampler_factor_sparsity():
 	p_1 = []     #A n-by-k matrix contains all the probability of z_nk = 1
 
 	for n in range(dimension):
-		p_k = []
+		p_k0 = []
 		p_k1 = []
 		for k in range(n_factor):
-			p_k.append((1 - sparsity_prior[3][k])*cal_pR(n,k, num_factor))
+			p_k0.append((1 - sparsity_prior[3][k])*cal_pR(n,k, num_factor))
 			p_k1.append(sparsity_prior[3][k] * cal_pR_1(n,k,num_factor))
-		p_0.append(p_k)
+		p_0.append(p_k0)
 		p_1.append(p_k1)
 
 	print "now sampling z"
@@ -575,10 +588,10 @@ def sampler_factor_sparsity():
 		#sampler_Bernoulli will return np.array object
 		z.append(sampler_bernoulli(p_1/(p_0 + p_1), loc=0, size=n_factor))
 
-	sparsity_prior[2] = z
+	sparsity_prior[2] = np.array(z)
 
 	#DEBUG
-	print "no sampling V"
+	print "now sampling V"
 
 
 	#==== sample factor matrix
