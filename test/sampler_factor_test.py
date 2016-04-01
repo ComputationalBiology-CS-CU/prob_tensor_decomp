@@ -14,9 +14,9 @@ normalWishart = [[2,2],2,[[10,5],[5,10]],3]
 
 def test_cr(v, t, lambda_u, precision_matrix):
 	global alpha
+	global n_factor
 	dimension1 = n_v
 	dimension2 = n_t
-
 	Q = []
 
 	for i in range(dimension1):
