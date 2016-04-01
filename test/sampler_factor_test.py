@@ -30,7 +30,6 @@ def test_cr(v, t, lambda_u, precision_matrix):
 
 
 def test_mw(v, t,  lambda_u, precision_matrix):
-	#print v.shape
 	global alpha
 	d1 = n_v
 	d2 = n_t
@@ -38,10 +37,8 @@ def test_mw(v, t,  lambda_u, precision_matrix):
 	for i in range(d1):
 		for j in range(d2):
 			vt_vector = np.multiply(v[i], t[j])
-			# print np.array(vt_vector).T
-			# debug = alpha * np.dot(np.array([vt_vector]).T, np.array([vt_vector]))
 			precision_matrix = np.add(precision_matrix, alpha * np.dot(np.array([vt_vector]).T, np.array([vt_vector])))
-			#print precision_matrix.shape
+
 	return precision_matrix
 
 
