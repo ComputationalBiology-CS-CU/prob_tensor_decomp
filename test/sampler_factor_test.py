@@ -7,8 +7,8 @@ import timeit
 #==Global variables==
 #====================
 n_factor = 10
-n_v = 200
-n_t = 20
+n_v = 20000
+n_t = 200
 alpha = 0.5
 normalWishart = [[2,2],2,[[10,5],[5,10]],3]
 
@@ -25,7 +25,7 @@ def test_cr(v, t, lambda_u, precision_matrix):
 			Q.append(vt_vector)
 
 	Q = np.array(Q)
-	precision_matrix = np.add(precision_matrix,alpha * np.dot(Q.T, Q))
+	precision_matrix = np.add(precision_matrix, np.multiply(alpha, np.dot(Q.T, Q)))
 	return precision_matrix
 
 
@@ -37,7 +37,7 @@ def test_mw(v, t,  lambda_u, precision_matrix):
 	for i in range(d1):
 		for j in range(d2):
 			vt_vector = np.multiply(v[i], t[j])
-			precision_matrix = np.add(precision_matrix, alpha * np.dot(np.array([vt_vector]).T, np.array([vt_vector])))
+			precision_matrix = np.add(precision_matrix, np.multiply(alpha, np.dot(np.array([vt_vector]).T, np.array([vt_vector]))))
 
 	return precision_matrix
 
