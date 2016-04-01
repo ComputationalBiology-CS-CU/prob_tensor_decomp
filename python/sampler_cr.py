@@ -409,10 +409,10 @@ def sampler_factor(num_factor):
 				# array = [0] * n_factor
 				# for count in range(n_factor):
 				# 	array[count] = fm[num_factor_1][j][count] * fm[num_factor_2][k][count]
-				# for count1 in range(n_factor):
-				# 	for count2 in range(n_factor):
-				# 		precision_matrix[count1][count2] += alpha * array[count1] * array[count2]
-		precision_matrix = np.add(precision_matrix, alpha*np.dot(np.array([array]).T, np.array([array])))
+				for count1 in range(n_factor):
+					for count2 in range(n_factor):
+						precision_matrix[count1][count2] += alpha * array[count1] * array[count2]
+				# precision_matrix = np.add(precision_matrix, alpha*np.dot(np.array([array]).T, np.array([array])))
 		cov = inv(precision_matrix)
 
 
