@@ -27,9 +27,9 @@ from copy import *
 ##=====================
 n_factor = 40
 n_individual = 200
-n_gene = 10000
+n_gene = 2000
 n_tissue = 30
-dimension = (n_individual, n_tissue)
+dimension = (n_individual, n_gene)
 factor_name = {}
 dataset = np.zeros(shape=dimension) # individual x gene x tissue
 markerset = np.ones(shape=dimension) # mark the position where there are data	
@@ -100,7 +100,7 @@ def load_dataset():
 	global n_factor
 	# load fmlist from simulated data
 	fmlist.append(np.load('Individual.npy'))
-	fmlist.append(np.load('Tissue.npy'))
+	fmlist.append(np.load('Gene.npy'))
 	prod = np.ones(n_factor)
 	factor_combination(dataset, fmlist, dimension, n_factor, 0, prod, [])
 
@@ -125,8 +125,7 @@ def sampler_MVN(mean, cov):
 def sampler_W(df, scale):
 	#
 	sample = wishart.rvs(df, scale, size=1, random_state=None)
-	matrix = sample[0]
-	return matrix
+	return sample
 
 
 ##==== sampling from Gamma, for the variance
@@ -183,10 +182,10 @@ def sampler_factor(factor_id):
 
 
 		# DEBUG
-		print "now sampling factor#",
-		print i+1,
-		print "out of",
-		print cur_dimension
+		#print "now sampling factor#",
+		#print i+1,
+		#print "out of",
+		#print cur_dimension
 
 
 		precision_matrix = prior[factor_id][1]
@@ -198,7 +197,7 @@ def sampler_factor(factor_id):
 		#prod = np.ones(n_factor)
 		#sampler_factor_helper(dataset, markerset, fmlist, dimension, n_factor, prod, [], factor_id, precision_matrix)
 		
-
+		#Q = []
 		for j in range(dimension1):
 			hash_temp = {factor_id: i, ids[0]: j}
 			index1 = hash_temp[0]
@@ -208,7 +207,11 @@ def sampler_factor(factor_id):
 			#array = np.multiply(fmlist[ids[0]][j], fmlist[ids[1]][k])
 			precision_matrix = np.add(precision_matrix, alpha*np.dot(np.array([fmlist[ids[0]][j]]).T, np.array([fmlist[ids[0]][j]])))
 
+			#vt_vector = np.multiply(v[i], t[j])
+			#Q.append(fmlist[ids[0]][j])
 
+		#Q = np.array(Q)
+		#precision_matrix = np.add(precision_matrix, np.multiply(alpha, np.dot(Q.T, Q)))
 		cov = inv(precision_matrix)
 
 		mean = np.dot(prior[factor_id][0], prior[factor_id][1])
@@ -286,6 +289,7 @@ def sampler_factor(factor_id):
 	# beta new
 	beta = hyper_prior[factor_id][3] + dimension[factor_id]
 	precision_matrix = beta * prior[factor_id][1]
+	print precision_matrix
 	cov = inv(precision_matrix)
 
 	# mean
@@ -312,7 +316,7 @@ def sampler_precision():
 	s = 0
 
 	for i in range(n_individual):
-		for j in range(n_tissue):
+		for j in range(n_gene):
 			if markerset[i][j] == 0:
 				continue
 			#
@@ -402,7 +406,7 @@ def loglike_joint():
 
 	#==== observation likelihood
 	for i in range(n_individual):
-		for j in range(n_tissue):
+		for j in range(n_gene):
 			if markerset[i][j] == 0:
 				continue
 
@@ -411,14 +415,14 @@ def loglike_joint():
 			var = 1.0 / alpha
 			like_log += loglike_Gaussian(obs, mean, var)
 
-	print "LL is ",like_log
+	#print "LL is ",like_log
 
 	#==== factor matrix likelihood
 	for i in range(n_individual):
 		like_log += loglike_MVN(fmlist[0][i], prior[0][0], prior[0][1])
 	#for j in range(n_gene):
 	#	like_log += loglike_MVN(fm[1][j], prior[1][0], prior[1][1])
-	for k in range(n_tissue):
+	for k in range(n_gene):
 		like_log += loglike_MVN(fmlist[1][k], prior[1][0], prior[1][1])
 
 	#==== factor prior likelihood
@@ -486,9 +490,6 @@ if __name__ == '__main__':
 		hyper_prior[n].append(np.int(np.load("kappa.npy")))		# TODO: tunable  kappa_0
 
 
-		print hyper_prior[n]
-
-
 
 	#== the prior of MVN (mean and precision matrix)
 	prior1 = []
@@ -533,14 +534,14 @@ if __name__ == '__main__':
 		print "current iteration#",
 		print i+1
 		for j in range(2):
-			print "sampling factor#",
-			print j+1,
-			print "..."
+			#print "sampling factor#",
+			#print j+1,
+			#print "..."
 			sampler_factor(j)
-		print "sample precision..."
+		#print "sample precision..."
 		sampler_precision()
 		like_log = loglike_joint()	# monitor the log joint likelihood
-		print "sampling done. the log joint likelihood is",
+		#print "sampling done. the log joint likelihood is",
 		print like_log
 
 
