@@ -167,7 +167,7 @@ def simulator_spike_slab():
                 sigma = sampler_Gamma(normalGamma[2], normalGamma[3])
                 v[i][j] = sampler_Normal(normalGamma[0], sigma/normalGamma[1])
 
-    return v
+    return np.array(v)
 
 def simulator_MVN(n_sample, isTrans):
     u = []
@@ -186,7 +186,7 @@ def simulator_MVN(n_sample, isTrans):
     if (isTrans):
         return np.array(u).T
     else:
-        return u
+        return np.array(u)
 
 def compare_sparsity (v1, v2):
     k1 = len(n_gene)
@@ -240,7 +240,8 @@ def simulation(use_spike, smallMatrix, tensor):
     if tensor:
         print "tissue has ", n_tissue
 
-    #initialize normal wishart parameter
+    #DEBUG
+    print "initializing normal wishart parameter"
     mu = []
     precision = []
     for i in range(n_factor):
