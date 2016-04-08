@@ -20,7 +20,8 @@ from scipy.stats import wishart
 import math
 from numpy import linalg as LA
 from copy import *
-
+import cProfile
+import timeit
 
 ##=====================
 ##==== global variables
@@ -196,8 +197,10 @@ def sampler_factor(factor_id):
 
 		#prod = np.ones(n_factor)
 		#sampler_factor_helper(dataset, markerset, fmlist, dimension, n_factor, prod, [], factor_id, precision_matrix)
-		
-		#Q = []
+
+
+
+		Q = []
 		for j in range(dimension1):
 			hash_temp = {factor_id: i, ids[0]: j}
 			index1 = hash_temp[0]
@@ -205,16 +208,19 @@ def sampler_factor(factor_id):
 			if markerset[(index1, index2)] == 0:
 				continue
 			#array = np.multiply(fmlist[ids[0]][j], fmlist[ids[1]][k])
-			precision_matrix = np.add(precision_matrix, alpha*np.dot(np.array([fmlist[ids[0]][j]]).T, np.array([fmlist[ids[0]][j]])))
+			#precision_matrix = np.add(precision_matrix, alpha*np.dot(np.array([fmlist[ids[0]][j]]).T, np.array([fmlist[ids[0]][j]])))
 
 			#vt_vector = np.multiply(v[i], t[j])
-			#Q.append(fmlist[ids[0]][j])
+			Q.append(fmlist[ids[0]][j])
 
-		#Q = np.array(Q)
-		#precision_matrix = np.add(precision_matrix, np.multiply(alpha, np.dot(Q.T, Q)))
+		Q = np.array(Q)
+		precision_matrix = np.add(precision_matrix, np.multiply(alpha, np.dot(Q.T, Q)))
+
+		
 		cov = inv(precision_matrix)
 
 		mean = np.dot(prior[factor_id][0], prior[factor_id][1])
+
 
 		for j in range(dimension1):
 			hash_temp = {factor_id: i, ids[0]: j}
@@ -224,13 +230,17 @@ def sampler_factor(factor_id):
 				continue
 
 			#array = np.multiply(fmlist[ids[0]][j], fmlist[ids[1]][k])
-			
 			mean = np.add(alpha * np.multiply(dataset[(index1, index2)], fmlist[ids[0]][j]), mean)
 		
 		mean = np.dot(mean, cov.T)
+		
 
 		#== sampling
+
 		fmlist[factor_id][i] = sampler_MVN(mean, cov)
+
+
+	#print fmlist[factor_id]
 	
 	# DEBUG
 	print "now we are sampling the prior..."
@@ -242,8 +252,10 @@ def sampler_factor(factor_id):
 	print "preparing and sampling Wishart first..."
 
 
-
 	# factor_mean
+	# factor_var
+	# not sure
+	'''
 	factor_mean = np.array([0] * n_factor)
 	for i in range(dimension[factor_id]):
 		for j in range(n_factor):
@@ -252,7 +264,6 @@ def sampler_factor(factor_id):
 	for i in range(n_factor):
 		factor_mean[i] = factor_mean[i] * 1.0 / dimension[factor_id]
 
-	# factor_var
 	factor_var = np.zeros((n_factor, n_factor))
 	for i in range(dimension[factor_id]):
 		for count1 in range(n_factor):
@@ -261,16 +272,45 @@ def sampler_factor(factor_id):
 	for count1 in range(n_factor):
 		for count2 in range(n_factor):
 			factor_var[count1][count2] = factor_var[count1][count2] * 1.0 / dimension[factor_id]
+	
+	print factor_var
+	'''
+	# mw
+	factor_mean = [0] * n_factor
+	for i in range(dimension[factor_id]):
+		for j in range(n_factor):
+			factor_mean[j] += fmlist[factor_id][i][j]
+	
+	for i in range(n_factor):
+		factor_mean[i] = factor_mean[i] * 1.0 / dimension[factor_id]
+
+	factor_mean_t = np.array([factor_mean]).T
+	mean_matrix = np.repeat(factor_mean_t, dimension[factor_id], axis=1)
+
+	factor_var = np.dot(fmlist[factor_id].T - mean_matrix, (fmlist[factor_id].T - mean_matrix).T)
+
+	#print factor_var
 
 	# cov_matrix
+	'''
 	cov_matrix = inv(hyper_prior[factor_id][0])
 	for count1 in range(n_factor):
 		for count2 in range(n_factor):
-			cov_matrix[count1][count2] += dimension[factor_id] * factor_var[count1][count2]
+			cov_matrix[count1][count2] += factor_var[count1][count2]
 	temp = hyper_prior[factor_id][3] * dimension[factor_id] / ( hyper_prior[factor_id][3] + dimension[factor_id] )
 	for count1 in range(n_factor):
 		for count2 in range(n_factor):
 			cov_matrix[count1][count2] += temp * (hyper_prior[factor_id][2][count1] - factor_mean[count1]) * (hyper_prior[factor_id][2][count2] - factor_mean[count2])
+	precision_matrix = inv(cov_matrix)
+	'''
+
+	# mw
+	cov_matrix = inv(hyper_prior[factor_id][0])
+	cov_matrix = np.add(cov_matrix, factor_var)
+	temp = hyper_prior[factor_id][3] * dimension[factor_id] / ( hyper_prior[factor_id][3] + dimension[factor_id] )
+	mean_diff = hyper_prior[factor_id][2]-factor_mean
+	mean_diff = np.array([mean_diff])
+	cov_matrix = np.add(cov_matrix, temp * np.dot(mean_diff.T, mean_diff))
 	precision_matrix = inv(cov_matrix)
 
 	# df new
@@ -283,22 +323,20 @@ def sampler_factor(factor_id):
 	# DEBUG
 	print "now sampling MVN..."
 
-
-
-	#== sample Gaussian then
+	#== sample Gaussian
 	# beta new
 	beta = hyper_prior[factor_id][3] + dimension[factor_id]
 	precision_matrix = beta * prior[factor_id][1]
-	print precision_matrix
 	cov = inv(precision_matrix)
 
 	# mean
-	mean = (hyper_prior[factor_id][3] * hyper_prior[factor_id][2] + dimension[factor_id] * factor_mean) / (hyper_prior[factor_id][3] + dimension[factor_id])
+	
+	mean = (hyper_prior[factor_id][3] * hyper_prior[factor_id][2] + dimension[factor_id] * np.array(factor_mean)) / (hyper_prior[factor_id][3] + dimension[factor_id])
 	
 	# sampling MVN
 	prior[factor_id][0] = sampler_MVN(mean, cov)
 
-	return
+	#return
 
 
 ##==== sampling precision
@@ -468,8 +506,6 @@ if __name__ == '__main__':
 	##==== initialize global variables
 	##================================
 	#n_factor = 40			# TODO: this is tunable, and the number 400 comes from results of other more complex methods
-
-
 
 	#== set the hyper-prior
 	hyper_prior1 = []
