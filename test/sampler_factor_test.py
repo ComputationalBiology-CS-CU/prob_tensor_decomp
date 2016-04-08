@@ -37,19 +37,16 @@ def test_cr_tensor(v, t, lambda_u, precision_matrix, mean, product, u_i):
 	dimension1 = n_v
 	dimension2 = n_t
 	Q = []
-	R = []
 
 	for i in range(dimension1):
 		for j in range(dimension2):
 			vt_vector = np.multiply(v[i], t[j])
 			Q.append(vt_vector)
-			R.append(vt_vector * product[i][u_i][j] * alpha)
+			mean = np.add(mean,np.multiply(alpha,np.multiply(vt_vector , product[i][u_i][j])))
 
 	Q = np.array(Q)
-	R = np.array(R)
 
 	precision_matrix = np.add(precision_matrix, np.multiply(alpha, np.dot(Q.T, Q)))
-	mean = np.add(mean, R)
 
 	cov = inv(precision_matrix)
 
@@ -179,6 +176,10 @@ def test_main():
 			product += reduce(np.multiply, np.ix_(*vs))
 
 		print product.shape
+		v = v.T
+		u = u.T
+		t = t.T
+
 		#DEBUG
 		print "initialize mean array"
 		mean = [1] * n_factor
@@ -229,6 +230,8 @@ def matrix_equal(m1, m2):
 def array_equal(a1, a2):
 	if (len(a1) != len(a2)):
 		print "Array shape error!"
+		print "Mengqing has ", len(a1)
+		print "Chuqiao has ", len(a2)
 		return False
 
 	for i in range(len(a1)):
