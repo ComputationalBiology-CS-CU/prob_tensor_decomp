@@ -1,16 +1,19 @@
 #This is the test code for sampler_factor
 import numpy as np
 from scipy.stats import wishart
+from numpy.linalg import inv
 import timeit
 
 #====================
 #==Global variables==
 #====================
 n_factor = 10
-n_v = 20000
-n_t = 200
+n_v = 2000
+n_t = 20
+n_u = 100
 alpha = 0.5
 normalWishart = [[2,2],2,[[10,5],[5,10]],3]
+testTensor = True
 
 def test_cr(v, t, lambda_u, precision_matrix):
 	global alpha
@@ -27,6 +30,49 @@ def test_cr(v, t, lambda_u, precision_matrix):
 	Q = np.array(Q)
 	precision_matrix = np.add(precision_matrix, np.multiply(alpha, np.dot(Q.T, Q)))
 	return precision_matrix
+
+def test_cr_tensor(v, t, lambda_u, precision_matrix, mean, product, u_i):
+	global alpha
+	global n_factor
+	dimension1 = n_v
+	dimension2 = n_t
+	Q = []
+	R = []
+
+	for i in range(dimension1):
+		for j in range(dimension2):
+			vt_vector = np.multiply(v[i], t[j])
+			Q.append(vt_vector)
+			R.append(vt_vector * product[i][u_i][j] * alpha)
+
+	Q = np.array(Q)
+	R = np.array(R)
+
+	precision_matrix = np.add(precision_matrix, np.multiply(alpha, np.dot(Q.T, Q)))
+	mean = np.add(mean, R)
+
+	cov = inv(precision_matrix)
+
+	mean = np.dot(mean, cov.T)
+
+	return mean, precision_matrix
+
+def test_mw_tensor(v, t, lambda_u, precision_matrix, mean, product, u_i):
+	global alpha
+	d1 = n_v
+	d2 = n_t
+
+	for i in range(d1):
+		for j in range(d2):
+			vt_vector = np.multiply(v[i], t[j])
+			precision_matrix = np.add(precision_matrix, np.multiply(alpha, np.dot(np.array([vt_vector]).T, np.array([vt_vector]))))
+			mean = np.add(alpha * np.multiply(product[(i, u_i, j)], vt_vector), mean)
+
+	cov = inv(precision_matrix)
+
+	mean = np.dot(mean, cov.T)
+
+	return mean, precision_matrix
 
 
 def test_mw(v, t,  lambda_u, precision_matrix):
@@ -47,7 +93,9 @@ def test_main():
 	global n_factor
 	global n_v
 	global n_t
+	global n_u
 	global normalWishart
+	global testTensor
 
 	#DEBUG
 	print "Initiate normal Wishart prior"
@@ -89,30 +137,74 @@ def test_main():
 
 	#DEBUG
 	print "simulate V and T"
-	v = simulator_MVN(n_v, False)
-	t = simulator_MVN(n_t, False)
+	v = simulator_MVN(n_v, True)
+	t = simulator_MVN(n_t, True)
 
-	#DEBUG
-	print "test Mengqing's method"
-	start_time_mw = timeit.default_timer()
-	mw = test_mw(v, t, lambda_U, precision_matrix)
-	elapsed_mw = timeit.default_timer() - start_time_mw
+	if not testTensor:
+		#DEBUG
+		print "test Mengqing's method"
+		start_time_mw = timeit.default_timer()
+		mw = test_mw(v, t, lambda_U, precision_matrix)
+		elapsed_mw = timeit.default_timer() - start_time_mw
 
-	print "test Chuqiao's method"
-	start_time_cr = timeit.default_timer()
-	cr = test_cr(v, t, lambda_U,precision_matrix)
-	elapsed_cr = timeit.default_timer() - start_time_cr
+		print "test Chuqiao's method"
+		start_time_cr = timeit.default_timer()
+		cr = test_cr(v, t, lambda_U,precision_matrix)
+		elapsed_cr = timeit.default_timer() - start_time_cr
 
-	isSame = matrix_equal(mw, cr)
+		isSame = matrix_equal(mw, cr)
 
-	print
-	print "---------RESULTS SECTION--------------"
+		print
+		print "---------RESULTS SECTION--------------"
 
-	print "Have we got the same answer? ", isSame
-	print "--------------------------------------"
-	print "Mengqing's result is ", elapsed_mw
-	print "--------------------------------------"
-	print "Chuqiao's result is ", elapsed_cr
+		print "Have we got the same answer? ", isSame
+		print "--------------------------------------"
+		print "Mengqing's result is ", elapsed_mw
+		print "--------------------------------------"
+		print "Chuqiao's result is ", elapsed_cr
+
+	if testTensor:
+		#DEBUG
+		print "simulate U"
+		u = simulator_MVN(n_u, True)
+
+		#DEBUG
+		print "tensor multiplication..."
+
+		vs = [v[0], u[0], t[0]]
+		product = reduce(np.multiply, np.ix_(*vs))
+
+		for i in xrange(1,n_factor):
+			vs = [v[i], u[i], t[i]]
+			product += reduce(np.multiply, np.ix_(*vs))
+
+		print product.shape
+		#DEBUG
+		print "initialize mean array"
+		mean = [1] * n_factor
+		mean = np.array(mean)
+
+		#DEBUG
+		print "test Mengqing's method"
+		start_time_mw = timeit.default_timer()
+		mw = test_mw_tensor(v, t, lambda_U, precision_matrix, mean, product, 1)
+		elapsed_mw = timeit.default_timer() - start_time_mw
+
+		print "test Chuqiao's method"
+		start_time_cr = timeit.default_timer()
+		cr = test_cr_tensor(v, t, lambda_U, precision_matrix, mean, product, 1)
+		elapsed_cr = timeit.default_timer() - start_time_cr
+
+		isSame = matrix_equal(mw[1], cr[1]) and array_equal(mw[0], cr[0])
+
+		print
+		print "---------RESULTS SECTION FOR TENSOR--------------"
+
+		print "Have we got the same answer? ", isSame
+		print "-------------------------------------------------"
+		print "Mengqing's result is ", elapsed_mw
+		print "-------------------------------------------------"
+		print "Chuqiao's result is ", elapsed_cr
 
 
 #========================
@@ -121,7 +213,7 @@ def test_main():
 
 def matrix_equal(m1, m2):
 	if (m1.shape != m2.shape):
-		print "Shape is not the same!"
+		print "Matrix shape is not the same!"
 		return False
 
 	for i in range(m1.shape[0]):
@@ -129,8 +221,22 @@ def matrix_equal(m1, m2):
 			if abs(m1[i][j] - m2[i][j]) > 0.01:
 				print m1[i][j]
 				print m2[i][j]
-				print "Entry ERROR"
+				print "Matrix Entry ERROR"
 				return False
+
+	return True
+
+def array_equal(a1, a2):
+	if (len(a1) != len(a2)):
+		print "Array shape error!"
+		return False
+
+	for i in range(len(a1)):
+		if abs(a1[i] - a2[i]) > 0.01:
+			print a1[i]
+			print a2[i]
+			print "Array Entry ERROR"
+			return False
 
 	return True
 

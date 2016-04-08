@@ -208,6 +208,7 @@ def cal_product(i, j, k):
 	return product
 
 ##==== Deep copy of gene matrix (used when calculate V~nk)
+'''
 def deep_copy(v):
 	v_new = []
 	for n in range(len(v)):
@@ -217,8 +218,10 @@ def deep_copy(v):
 		v_new.append(v_row)
 
 	return v_new
+'''
 
-def cal_pR(n,k,num_factor):
+def cal_pR_0(n, k, num_factor):
+	#This function is to calculate the probability of z_0
 	global markerset
 	global alpha
 
@@ -238,6 +241,7 @@ def cal_pR(n,k,num_factor):
 	return result
 
 def cal_pR_1(n,k,num_factor):
+	#This function is to calculate the probability of z_1
 	global alpha
 	global dataset
 	global fm
@@ -245,7 +249,17 @@ def cal_pR_1(n,k,num_factor):
 	global sparsity_prior
 	global n_factor
 	global n_gene
+	global n_individual
+	global n_tissue
 
+	#DEBUG
+	print 'Ready to calculate z_1'
+
+
+
+	'''
+	#The following code is to do LaPlace approximation
+	#This is deprecated because we can calculate the product of normal distribution directly
 	v = deep_copy(fm[num_factor])
 
 	N = n_gene
@@ -281,6 +295,7 @@ def cal_pR_1(n,k,num_factor):
 	result = likelihood * norm(sparsity_prior[0][k], sparsity_hyper_prior[1][k][k]).pdf(v[n][k]) * math.sqrt(2 * math.pi) * math.sqrt(sigma2) * (N**(-0.5))
 
 	return result
+	'''
 
 ##==== sampling from Gaussian (with mean and std)
 def sampler_Normal(mu, sigma):
@@ -395,6 +410,8 @@ def sampler_factor(num_factor):
 				value = prior[num_factor][1][count1][count2]	# initialize with the prior precision matrix, then later update
 				precision_matrix[count1].append(value)
 		precision_matrix = np.array(precision_matrix)
+
+		#TODO: Need to change to an optimized way to calculate precision_matrix
 
 		for j in range(dimension1):
 			for k in range(dimension2):
@@ -568,7 +585,7 @@ def sampler_factor_sparsity():
 	print "we'll sample factor matrix first..."
 
 	#DEBUG
-	print "preparing to do LaPlace approximation..."
+	print "preparing to calculate z_0 and z_1..."
 	p_0 = []     #A n-by-k matrix contains all the probability of z_nk = 0
 	p_1 = []     #A n-by-k matrix contains all the probability of z_nk = 1
 
@@ -576,8 +593,8 @@ def sampler_factor_sparsity():
 		p_k0 = []
 		p_k1 = []
 		for k in range(n_factor):
-			p_k0.append((1 - sparsity_prior[3][k])*cal_pR(n,k, num_factor))
-			p_k1.append(sparsity_prior[3][k] * cal_pR_1(n,k,num_factor))
+			p_k0.append((1 - sparsity_prior[3][k]) * cal_pR_0(n, k, num_factor))
+			p_k1.append(sparsity_prior[3][k] * cal_pR_1(n, k, num_factor))
 		p_0.append(p_k0)
 		p_1.append(p_k1)
 
