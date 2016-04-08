@@ -112,15 +112,18 @@ def sampler_Normal(mu, sigma):
 
 ##==== sampling from Multivariate Gaussian
 def sampler_MVN(mean, cov):
+	'''
 	array = [0] * len(mean)
 	array = np.array(array)
 	
-	x = np.random.multivariate_normal(mean, cov, 1).T
-	for i in range(len(x)):
-		y = x[i][0]
+	x = np.random.multivariate_normal(mean, cov, 1)
+	for i in range(len(x[0])):
+		y = x[0][i]
 		array[i] = y
 	return array
-
+	'''
+	x = np.random.multivariate_normal(mean, cov, 1)
+	return x[0]
 
 ##==== sampling from Wishart
 def sampler_W(df, scale):
@@ -131,10 +134,8 @@ def sampler_W(df, scale):
 
 ##==== sampling from Gamma, for the variance
 def sampler_Gamma(para1, para2):
-	precision = 0
 	x = np.random.gamma(para1, para2, 1)
-	precision = x[0]
-	return precision
+	return x[0]
 
 
 def sampler_factor_helper(dataset, markerset, fmlist, dim_depth, n_factor, prod, path, factor_id, precision_matrix):
@@ -188,7 +189,6 @@ def sampler_factor(factor_id):
 		#print "out of",
 		#print cur_dimension
 
-
 		precision_matrix = prior[factor_id][1]
 		ids = [0,1]
 		ids.remove(factor_id)
@@ -197,8 +197,6 @@ def sampler_factor(factor_id):
 
 		#prod = np.ones(n_factor)
 		#sampler_factor_helper(dataset, markerset, fmlist, dimension, n_factor, prod, [], factor_id, precision_matrix)
-
-
 
 		Q = []
 		for j in range(dimension1):
@@ -215,10 +213,7 @@ def sampler_factor(factor_id):
 
 		Q = np.array(Q)
 		precision_matrix = np.add(precision_matrix, np.multiply(alpha, np.dot(Q.T, Q)))
-
-		
 		cov = inv(precision_matrix)
-
 		mean = np.dot(prior[factor_id][0], prior[factor_id][1])
 
 
@@ -230,17 +225,16 @@ def sampler_factor(factor_id):
 				continue
 
 			#array = np.multiply(fmlist[ids[0]][j], fmlist[ids[1]][k])
-			mean = np.add(alpha * np.multiply(dataset[(index1, index2)], fmlist[ids[0]][j]), mean)
+			mean = np.add(alpha * dataset[(index1, index2)] * fmlist[ids[0]][j], mean)
 		
-		mean = np.dot(mean, cov.T)
-		
+		mean = np.dot(mean, cov)
 
 		#== sampling
 
 		fmlist[factor_id][i] = sampler_MVN(mean, cov)
 
 
-	#print fmlist[factor_id]
+	print fmlist[factor_id]
 	
 	# DEBUG
 	print "now we are sampling the prior..."
@@ -330,7 +324,6 @@ def sampler_factor(factor_id):
 	cov = inv(precision_matrix)
 
 	# mean
-	
 	mean = (hyper_prior[factor_id][3] * hyper_prior[factor_id][2] + dimension[factor_id] * np.array(factor_mean)) / (hyper_prior[factor_id][3] + dimension[factor_id])
 	
 	# sampling MVN
@@ -347,6 +340,7 @@ def sampler_precision():
 	global n_tissue
 	global dataset
 	global markerset
+	global alpha
 
 	para1_old = alpha_prior[0]
 	para2_old = alpha_prior[1]
@@ -361,6 +355,7 @@ def sampler_precision():
 			R_real = dataset[i][j]
 			R_exp = cal_product(i, j)
 			s += math.pow(R_real - R_exp, 2)
+			n += 1
 
 	para1_new = para1_old + 0.5 * n
 	para2_new = para2_old + 0.5 * s
@@ -546,7 +541,6 @@ if __name__ == '__main__':
 	mean = np.array([0] * n_factor)
 
 	cov = np.identity(n_factor)
-	
 
 	#== set the prior for precision (Gamma)
 	alpha_prior = [1, 0.5]		# shape parameter and rate parameter, TODO: tunable
@@ -565,7 +559,8 @@ if __name__ == '__main__':
 	##==============================
 	##==== sampler calling iteration
 	##==============================
-	ITER = 1000
+	ITER = 100
+	ll_result = []
 	for i in range(ITER):
 		print "current iteration#",
 		print i+1
@@ -579,5 +574,14 @@ if __name__ == '__main__':
 		like_log = loglike_joint()	# monitor the log joint likelihood
 		#print "sampling done. the log joint likelihood is",
 		print like_log
+		ll_result.append(like_log)
+
+
+	fo = open("test.txt","w+")
+	for ele in ll_result:
+		fo.write(str(ele)+"\n")
+
+	fo.close()
+
 
 
