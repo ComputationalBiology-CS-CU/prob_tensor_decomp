@@ -207,9 +207,6 @@ def cal_product(i, j, k):
 		product += fm[0][i][count] * fm[1][j][count] * fm[2][k][count]
 	return product
 
-# def cal_product(i,j,k):
-# 	global fm
-# 	return np.sum(np.multiply(np.multiply(fm[0][i], fm[1][j]),fm[2][k]))
 
 ##==== Deep copy of gene matrix (used when calculate V~nk)
 def deep_copy(v):
@@ -228,9 +225,7 @@ def cal_pR_0(n, k, num_factor):
 	global alpha
 
 	result = 1
-
 	v = deep_copy(fm[num_factor])
-
 	v[n][k] = 0
 
 	for i in range(n_individual):
@@ -307,45 +302,7 @@ def cal_pR_1(n,k):
 
 	return result
 
-'''
-	#The following code is to do LaPlace approximation
-	#This is deprecated because we can calculate the product of normal distribution directly
-	v = deep_copy(fm[num_factor])
 
-	N = n_gene
-
-	term1 = 0
-	term2 = 0
-	term3 = 0
-	for i in range(n_individual):
-		for t in range(n_tissue):
-			if (markerset[i][n][t] != 0):
-				term1 += dataset[i][n][t] * fm[0][i][k] * fm[2][t][k]
-				term3 += (fm[0][i][k] * fm[2][t][k])**2
-				term2_rest = 0
-				for m in range(n_factor):
-					if (m != k):
-						term2_rest += fm[0][i][m] * fm[2][t][m] * fm[1][n][m]
-				term2 += fm[0][i][k] * fm[2][t][k] * term2_rest
-	term1 = sparsity_prior[1][k][k]**2 * term1
-	term3 = sparsity_prior[1][k][k]**2 * term3
-
-	v[n][k] = (alpha**(-2) * sparsity_prior[0][k] + term1 - term2)/(term3 + alpha**(-2))
-
-	likelihood = 1
-
-	for i in range(n_individual):
-		for j in range(n_gene):
-			for t in range(n_tissue):
-				if (markerset[i][j][t] != 0):
-					#Assuming each R_{ij}^{k} is independent to others
-					likelihood = likelihood * norm(cal_product(i,j,t), alpha**(-1)).pdf(dataset[i][j][t])
-
-	sigma2 = N/(alpha**(2) * term3 + sparsity_hyper_prior[1][k][k]**(-2))
-	result = likelihood * norm(sparsity_prior[0][k], sparsity_hyper_prior[1][k][k]).pdf(v[n][k]) * math.sqrt(2 * math.pi) * math.sqrt(sigma2) * (N**(-0.5))
-
-	return result
-'''
 
 ##==== sampling from Gaussian (with mean and std)
 def sampler_Normal(mu, sigma):
@@ -386,9 +343,11 @@ def sampler_Gamma(para1, para2):
 def sampler_beta(a, b):
 	return np.random.beta(a, b)
 
+
 ## ==== sampling Bernoulli
 def sampler_bernoulli(p, size):
 	return bernoulli.rvs(p, loc=0, size=size)
+
 
 ## ==== sampling student-t
 def sampler_student_t(df, loc, scale):
@@ -451,22 +410,11 @@ def sampler_factor(num_factor):
 		print dimension
 
 
-
 		#== precision_matrix and mean array
-		'''
-		precision_matrix = []
-		for count1 in range(n_factor):
-			precision_matrix.append([])
-			for count2 in range(n_factor):
-				value = prior[num_factor][1][count1][count2]	# initialize with the prior precision matrix, then later update
-				precision_matrix[count1].append(value)
-		precision_matrix = np.array(precision_matrix)
-		'''
 		precision_matrix = prior[num_factor][1]
-
 		mean = np.dot(prior[num_factor][0], prior[num_factor][1])
-
 		Q = []
+
 		for j in range(dimension1):
 			for k in range(dimension2):
 				# re-arrange the three dimension, for querying original dataset
@@ -479,53 +427,11 @@ def sampler_factor(num_factor):
 				array = np.multiply(fm[num_factor_1][j], fm[num_factor_2][k])
 				Q.append(array)
 				mean = np.add(mean, np.multiply(alpha, np.multiply(array, dataset[index1][index2][index3])))
-				# array = [0] * n_factor
-				# for count in range(n_factor):
-				# 	array[count] = fm[num_factor_1][j][count] * fm[num_factor_2][k][count]
-				# for count1 in range(n_factor):
-				# 	for count2 in range(n_factor):
-				# 		precision_matrix[count1][count2] += alpha * array[count1] * array[count2]
-				# precision_matrix = np.add(precision_matrix, alpha*np.dot(np.array([array]).T, np.array([array])))
+
 		Q = np.array(Q)
 		precision_matrix = np.add(precision_matrix, np.multiply(alpha, np.dot(Q.T, Q)))
 		cov = inv(precision_matrix)
 		mean = np.dot(mean, cov.T)
-
-		#== mean array
-		# mean = [0] * n_factor
-
-		# for count1 in range(n_factor):
-		# 	for count2 in range(n_factor):
-		# 		mean[count1] += prior[num_factor][0][count2] * prior[num_factor][1][count1][count2]
-
-		#mean = np.dot(prior[num_factor][0], prior[num_factor][1].T)
-		'''
-		for j in range(dimension1):
-			for k in range(dimension2):
-				# re-arrange the three dimension, for querying original dataset
-				hash_temp = {num_factor: i, num_factor_1: j, num_factor_2: k}
-				index1 = hash_temp[0]
-				index2 = hash_temp[1]
-				index3 = hash_temp[2]
-				if markerset[index1][index2][index3] == 0:
-					continue
-				# array = [0] * n_factor
-				# for count in range(n_factor):
-				# 	array[count] = fm[num_factor_1][j][count] * fm[num_factor_2][k][count]
-				# R = dataset[index1][index2][index3]
-				# for count in range(n_factor):
-				# 	mean[count] += alpha * R * array[count]
-				array = np.multiply(fm[num_factor_1][j], fm[num_factor_2][k])
-				mean = np.add(alpha*dataset[index1][index2][index3] * array, mean)
-		'''
-		# array = [0] * n_factor
-		# array = np.array(array)
-		# for count1 in range(n_factor):
-		# 	for count2 in range(n_factor):
-		# 		array[count1] += mean[count2] * cov[count1][count2]
-		# mean = array
-		# mean = np.dot(mean, cov.T)
-
 
 		#== sampling
 		fm[num_factor][i] = sampler_MVN(mean, cov)
@@ -535,53 +441,27 @@ def sampler_factor(num_factor):
 	# DEBUG
 	print "now we are sampling the prior..."
 
-
-
 	#==== sample Gaussian-Wishart (Wishart first, then Gaussian) prior
 	#== sample Wishart first
-
 
 
 	# DEBUG
 	print "preparing and sampling Wishart first..."
 
-
-
 	# factor_mean
-
-	# factor_mean = np.array([0] * n_factor)
-	# for i in range(dimension):
-	# 	for j in range(n_factor):
-	# 		factor_mean[j] += fm[num_factor][i][j]
-	# for i in range(n_factor):
-	# 	factor_mean[i] = factor_mean[i] * 1.0 / dimension
 	factor_mean = np.average(fm[num_factor], axis = 0)
 
 	# factor_var
 	factor_var = np.zeros((n_factor, n_factor))
 	for i in range(dimension):
-		# for count1 in range(n_factor):
-		# 	for count2 in range(n_factor):
-		# 		factor_var[count1][count2] += (fm[num_factor][i][count1] - factor_mean[count1]) * (fm[num_factor][i][count2] - factor_mean[count2])
 		factor_var += np.dot((fm[num_factor][i] - factor_mean).T, (fm[num_factor][i] - factor_mean))
 
-	#I think the following code is redundant
-	'''
-	for count1 in range(n_factor):
-		for count2 in range(n_factor):
-				factor_var[count1][count2] = factor_var[count1][count2] * 1.0 / dimension
-	'''
 	# cov_matrix
 	cov_matrix = inv(hyper_prior[num_factor][0])
-	# for count1 in range(n_factor):
-	# 	for count2 in range(n_factor):
-	# 			cov_matrix[count1][count2] += dimension * factor_var[count1][count2]
 	cov_matrix = cov_matrix + factor_var
-	temp = hyper_prior[num_factor][3] * dimension / ( hyper_prior[num_factor][3] + dimension )
-	# for count1 in range(n_factor):
-	# 	for count2 in range(n_factor):
-	# 			cov_matrix[count1][count2] += temp * (hyper_prior[num_factor][2][count1] - factor_mean[count1]) * (hyper_prior[num_factor][2][count2] - factor_mean[count2])
+	temp = hyper_prior[num_factor][3] * dimension / ( hyper_prior[num_factor][3] + dimension)
 	cov_matrix = cov_matrix + temp * np.dot((hyper_prior[num_factor][2] - factor_mean).T, (hyper_prior[num_factor][2] - factor_mean))
+
 	precision_matrix = inv(cov_matrix)
 
 	# df new
@@ -594,7 +474,6 @@ def sampler_factor(num_factor):
 
 	# DEBUG
 	print "now sampling MVN then..."
-
 
 
 	#== sample Gaussian then
@@ -660,9 +539,11 @@ def sampler_factor_sparsity():
 	z = []
 	for i in range(dimension):
 		#sampler_Bernoulli will return np.array object
-		z.append(sampler_bernoulli(p_1/(p_0 + p_1), loc=0, size=n_factor))
+		z.append(sampler_bernoulli(p_1[i]/(p_0[i] + p_1[i]), size=n_factor)) #loc = 0 by default in the sampler_bernoulli function
 
 	sparsity_prior[2] = np.array(z)
+
+
 
 	#DEBUG
 	print "now sampling V"
@@ -675,12 +556,15 @@ def sampler_factor_sparsity():
 		print dim+1,
 		print "out of",
 		print dimension
-        
+
+		#First pick out those with z == 1
 		factor_ind = []
 		z = sparsity_prior[2]
 		for i in range(len(z[dim])):
 			if (z[dim][i] == 1):
 				factor_ind.append(i)
+
+		#TODO: Need to optimize the following code
 
 		#== precision_matrix
 		precision_matrix = []
