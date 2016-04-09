@@ -1,4 +1,5 @@
 #This is the test code for sampler_factor
+#Written by Chuqiao Ren and Mengqing Wang
 import numpy as np
 from scipy.stats import wishart
 from numpy.linalg import inv
