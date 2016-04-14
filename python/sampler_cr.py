@@ -558,11 +558,27 @@ def sampler_factor_sparsity():
 		print dimension
 
 		#First pick out those with z == 1
+		'''
 		factor_ind = []
 		z = sparsity_prior[2]
 		for i in range(len(z[dim])):
 			if (z[dim][i] == 1):
 				factor_ind.append(i)
+		'''
+		factor_ind = []
+		factor_u = []
+		factor_t = []
+		sparsity_mean = []
+		u = np.array(fm[num_factor_1])
+		t = np.array(fm[num_factor_2])
+		for i in range(len(z[dim])):
+			if (z[dim][i] == 1):
+				factor_u.append(u.T[i])
+				factor_t.append(t.T[i])
+				factor_ind.append(i)
+				sparsity_mean.append(sparsity_prior[0][i])
+
+
 
 		#TODO: Need to optimize the following code
 
@@ -570,12 +586,16 @@ def sampler_factor_sparsity():
 		precision_matrix = []
 		for count1 in range(len(factor_ind)):
 			count1_new = factor_ind[count1]
-			precision_matrix.append([])
+			temp = []
 			for count2 in range(len(factor_ind)):
 				count2_new = factor_ind[count2]
 				value = sparsity_prior[1][count1_new][count2_new]	# initialize with the prior precision matrix, then later update
-				precision_matrix[count1_new].append(value)
+				temp.append(value)
+			precision_matrix.append(temp)
+
 		precision_matrix = np.array(precision_matrix)
+		mean = np.dot(sparsity_mean, precision_matrix)
+		Q = []
 
 		for j in range(dimension1):
 			for k in range(dimension2):
@@ -586,52 +606,14 @@ def sampler_factor_sparsity():
 				index3 = hash_temp[2]
 				if markerset[index1][index2][index3] == 0:
 					continue
-				array = [0] * len(factor_ind)
-				for count in range(len(factor_ind)):
-					count_new = factor_ind[count]
-					array[count_new] = fm[num_factor_1][j][count_new] * fm[num_factor_2][k][count_new]
-				for count1 in range(len(factor_ind)):
-					count1_new = factor_ind[count1]
-					for count2 in range(len(factor_ind)):
-						count2_new = factor_ind[count2]
-						precision_matrix[count1_new][count2_new] += alpha * array[count1_new] * array[count2_new]
+				array = np.multiply(factor_u[j], factor_t[k])
+				Q.append(array)
+				mean = np.add(mean, np.multiply(alpha, np.multiply(array, dataset[index1][index2][index3])))
+
+		Q = np.array(Q)
+		precision_matrix = np.add(precision_matrix, np.multiply(alpha, np.dot(Q.T, Q)))
 		cov = inv(precision_matrix)
-
-
-		#== mean array
-		mean = [0] * len(factor_ind)
-		mean = np.array(mean)
-		for count1 in range(len(factor_ind)):
-			count1_new = factor_ind[count1]
-			for count2 in range(len(factor_ind)):
-				count2_new = factor_ind[count2]
-				mean[count1_new] += sparsity_prior[0][count2_new] * sparsity_prior[1][count1_new][count2_new]
-		for j in range(dimension1):
-			for k in range(dimension2):
-				# re-arrange the three dimension, for querying original dataset
-				hash_temp = {num_factor: i, num_factor_1: j, num_factor_2: k}
-				index1 = hash_temp[0]
-				index2 = hash_temp[1]
-				index3 = hash_temp[2]
-				if markerset[index1][index2][index3] == 0:
-					continue
-				array = [0] * len(factor_ind)
-				for count in range(len(factor_ind)):
-					count_new = factor_ind[count]
-					array[count_new] = fm[num_factor_1][j][count_new] * fm[num_factor_2][k][count_new]
-				R = dataset[index1][index2][index3]
-				for count in range(len(factor_ind)):
-					count_new = factor_ind[count]
-					mean[count_new] += alpha * R * array[count_new]
-
-		array = [0] * len(factor_ind)
-		array = np.array(array)
-		for count1 in range(len(factor_ind)):
-			count1_new = factor_ind[count1]
-			for count2 in range(len(factor_ind)):
-				count2_new = factor_ind[count2]
-				array[count1_new] += mean[count2_new] * cov[count1_new][count2_new]
-		mean = array
+		mean = np.dot(mean, cov.T)
 
 
 		#== sampling
@@ -644,7 +626,7 @@ def sampler_factor_sparsity():
 	# 	print dim+1,
 	# 	print "out of",
 	# 	print dimension
-    	
+
 	# 	result_array = [0] * n_factor
 
 	# 	for m in range(n_factor):
@@ -828,6 +810,50 @@ def loglike_Gamma(obs, para1, para2):
 	like_log = 0
 	like_log += (para1 - 1) * math.log(obs)
 	like_log += (- para2 * obs)
+	return like_log
+
+def loglike_joint_sparsity():
+	global n_individual, n_gene, n_tissue
+	global dataset, markerset
+	global fm
+	global prior		# prior[0, 1, 2]: 0: mean array; 1: precision matrix
+	global hyper_prior	# hyper_prior[0, 1, 2]: 0: scale; 1: df; 2: mean; 3: scaler
+	global alpha
+	global alpha_prior	# 0: shape parameter; 1: rate parameter
+
+	like_log = 0
+
+	#==== edml
+	for i in range(n_individual):
+		for j in range(n_gene):
+			for k in range(n_tissue):
+				if markerset[i][j][k] == 0:
+					continue
+
+				obs = dataset[i][j][k]
+				mean = cal_product(i, j, k)
+				var = 1.0 / alpha
+				like_log += loglike_Gaussian(obs, mean, var)
+
+	#TODO: Need to optimize the code below to calculate the factor matrix likelihood for gene
+	#==== factor matrix likelihood
+	for i in range(n_individual):
+		like_log += loglike_MVN(fm[0][i], prior[0][0], prior[0][1])
+	for j in range(n_gene):
+		like_log += loglike_MVN(fm[1][j], prior[1][0], prior[1][1])
+	for k in range(n_tissue):
+		like_log += loglike_MVN(fm[2][k], prior[2][0], prior[2][1])
+
+	#TODO: Need to optimize the code below to calculate factor prior likelihood for 
+	#==== factor prior likelihood
+	for i in range(3):
+		like_log += loglike_GW(prior[i][0], prior[i][1], hyper_prior[i][0], hyper_prior[i][1], hyper_prior[i][2], hyper_prior[i][3])
+
+
+	#==== precision/variance likelihood
+	like_log += loglike_Gamma(alpha, alpha_prior[0], alpha_prior[1])
+
+
 	return like_log
 
 
