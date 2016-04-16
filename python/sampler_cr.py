@@ -1060,18 +1060,41 @@ if __name__ == '__main__':
 	##==============================
 	##==== sampler calling iteration
 	##==============================
+	# ITER = 1000
+	# for i in range(ITER):
+	# 	print "current iteration#",
+	# 	print i+1
+	# 	for j in range(3):
+	# 		print "sampling factor#",
+	# 		print j+1,
+	# 		print "..."
+	# 		sampler_factor(j)
+	# 	print "sample precision..."
+	# 	sampler_precision()
+	# 	like_log = loglike_joint()	# monitor the log joint likelihood
+	# 	print "sampling done. the log joint likelihood is",
+	# 	print like_log
+
+	##============================================
+	##==== sampler calling iteration with sparsity
+	##============================================
+
 	ITER = 1000
 	for i in range(ITER):
 		print "current iteration#",
-		print i+1
-		for j in range(3):
-			print "sampling factor#",
-			print j+1,
-			print "..."
-			sampler_factor(j)
+		print i + 1
+		print "sampling factor# 1",
+		print "..."
+		sampler_factor(0)
+		print "sampling factor# 2",
+		print "..."
+		sampler_factor_sparsity()
+		print "sampling factor# 3",
+		print "..."
+		sampler_factor(2)
 		print "sample precision..."
 		sampler_precision()
-		like_log = loglike_joint()	# monitor the log joint likelihood
+		like_log = loglike_joint_sparsity()  # monitor the log joint likelihood
 		print "sampling done. the log joint likelihood is",
 		print like_log
 
