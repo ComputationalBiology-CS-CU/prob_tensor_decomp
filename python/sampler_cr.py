@@ -580,7 +580,6 @@ def sampler_factor_sparsity():
 
 
 
-		#TODO: Need to optimize the following code
 
 		#== precision_matrix
 		precision_matrix = []
@@ -613,8 +612,8 @@ def sampler_factor_sparsity():
 		Q = np.array(Q)
 		precision_matrix = np.add(precision_matrix, np.multiply(alpha, np.dot(Q.T, Q)))
 		cov = inv(precision_matrix)
-		mean = np.dot(mean, cov.T)
-
+		# mean = np.dot(mean, cov.T)
+		mean = np.dot(mean, cov)
 
 		#== sampling
 		fm[num_factor][dim] = sampler_MVN(mean, cov)
@@ -651,29 +650,31 @@ def sampler_factor_sparsity():
 	for k in range(n_factor):
 		v_n = []  #This is 1-dimensional vector V
 		for n in range(dimension):
-			v_n.append(fm[num_factor][n][k])
+			if sparsity_prior[2][n][k] != 0:
+				v_n.append(fm[num_factor][n][k])
+		d = len(v_n)
 
 		#Now calcualte \bar{V}
-		v_bar = sum(v_n)/dimension
+		v_bar = sum(v_n)/d
 
 		#Calcualte alpha_n
-		alpha_n = sparsity_hyper_prior[0] + dimension/2
+		alpha_n = sparsity_hyper_prior[0] + d/2
 
 		#Calculate beta_n
 
 		diff_v2 = []  #This is (V_n - \bar{V})^2
-		for n in range(dimension):
+		for n in range(d):
 			diff_v2.append((v_n[n] - v_bar)**2)
 
-		beta_n = sparsity_hyper_prior[1] + sum(diff_v2)/2 + (sparsity_hyper_prior[3]*dimension*(v_bar - sparsity_hyper_prior[2])**2)/(2*(sparsity_hyper_prior[3] + dimension))
+		beta_n = sparsity_hyper_prior[1] + sum(diff_v2)/2 + (sparsity_hyper_prior[3]*d*(v_bar - sparsity_hyper_prior[2])**2)/(2*(sparsity_hyper_prior[3] + d))
 
 		#Calculate kappa_n
 
-		kappa_n = sparsity_hyper_prior[3] + dimension
+		kappa_n = sparsity_hyper_prior[3] + d
 
 		#Calculate mu_n
 
-		mu_n = (sparsity_hyper_prior[3] * sparsity_hyper_prior[2] + dimension * v_bar)/(kappa_n)
+		mu_n = (sparsity_hyper_prior[3] * sparsity_hyper_prior[2] + d * v_bar)/(kappa_n)
 
 		#Update mean
 
@@ -812,50 +813,20 @@ def loglike_Gamma(obs, para1, para2):
 	like_log += (- para2 * obs)
 	return like_log
 
-def loglike_joint_sparsity():
-	global n_individual, n_gene, n_tissue
-	global dataset, markerset
-	global fm
-	global prior		# prior[0, 1, 2]: 0: mean array; 1: precision matrix
-	global hyper_prior	# hyper_prior[0, 1, 2]: 0: scale; 1: df; 2: mean; 3: scaler
-	global alpha
-	global alpha_prior	# 0: shape parameter; 1: rate parameter
-
+##==== log likelihood for Normal Gamma without constant terms
+def loglike_Normal_Gamma(obs1, obs2, mu, kappa, alpha, beta):
+	#Note: obs1 == mean and obs2 == precision (univariate)
 	like_log = 0
-
-	#==== edml
-	for i in range(n_individual):
-		for j in range(n_gene):
-			for k in range(n_tissue):
-				if markerset[i][j][k] == 0:
-					continue
-
-				obs = dataset[i][j][k]
-				mean = cal_product(i, j, k)
-				var = 1.0 / alpha
-				like_log += loglike_Gaussian(obs, mean, var)
-
-	#TODO: Need to optimize the code below to calculate the factor matrix likelihood for gene
-	#==== factor matrix likelihood
-	for i in range(n_individual):
-		like_log += loglike_MVN(fm[0][i], prior[0][0], prior[0][1])
-	for j in range(n_gene):
-		like_log += loglike_MVN(fm[1][j], prior[1][0], prior[1][1])
-	for k in range(n_tissue):
-		like_log += loglike_MVN(fm[2][k], prior[2][0], prior[2][1])
-
-	#TODO: Need to optimize the code below to calculate factor prior likelihood for 
-	#==== factor prior likelihood
-	for i in range(3):
-		like_log += loglike_GW(prior[i][0], prior[i][1], hyper_prior[i][0], hyper_prior[i][1], hyper_prior[i][2], hyper_prior[i][3])
-
-
-	#==== precision/variance likelihood
-	like_log += loglike_Gamma(alpha, alpha_prior[0], alpha_prior[1])
-
+	like_log += (alpha - 0.5) * math.log(obs2)
+	like_log += 0 - obs2 * 0.5 * (kappa * (obs1 - mu) * (obs1 - mu) + 2 * beta)
 
 	return like_log
 
+##==== log likelihood for Beta without constant terms
+def loglike_Beta(obs, alpha, beta):
+	like_log = 0
+	like_log += (alpha - 1) * math.log(obs) + (beta - 1) * math.log(1 - obs)
+	return like_log
 
 ##==== calculate the joint log likelihood
 def loglike_joint():
@@ -901,7 +872,59 @@ def loglike_joint():
 
 
 	return like_log
-		
+
+def loglike_joint_sparsity():
+		global n_individual, n_gene, n_tissue, n_factor
+		global dataset, markerset
+		global fm
+		global prior  # prior[0, 1, 2]: 0: mean array; 1: precision matrix
+		global hyper_prior  # hyper_prior[0, 1, 2]: 0: scale; 1: df; 2: mean; 3: scaler
+		global alpha
+		global alpha_prior  # 0: shape parameter; 1: rate parameter
+		global sparsity_prior  # 0: mean; 1: precision; 2: z; 3: pi
+		global sparsity_hyper_prior  # 0: alpha_0; 1: beta_0; 2: mu_0; 3: kappa_0; 4: alpha_pi; 5: gamma_pi
+
+		like_log = 0
+
+		# ==== edml
+		for i in range(n_individual):
+			for j in range(n_gene):
+				for k in range(n_tissue):
+					if markerset[i][j][k] == 0:
+						continue
+
+					obs = dataset[i][j][k]
+					mean = cal_product(i, j, k)
+					var = 1.0 / alpha
+					like_log += loglike_Gaussian(obs, mean, var)
+
+		# ==== factor matrix likelihood
+		for i in range(n_individual):
+			like_log += loglike_MVN(fm[0][i], prior[0][0], prior[0][1])
+		for j in range(n_gene):
+			like_log += loglike_MVN(fm[1][j], sparsity_prior[0], sparsity_prior[1])
+		for k in range(n_tissue):
+			like_log += loglike_MVN(fm[2][k], prior[2][0], prior[2][1])
+
+		# ==== factor prior likelihood for individual
+		like_log += loglike_GW(prior[0][0], prior[0][1], hyper_prior[0][0], hyper_prior[0][1], hyper_prior[0][2], hyper_prior[0][3])
+
+		# ==== factor prior likelihood for tissue
+		like_log += loglike_GW(prior[2][0], prior[2][1], hyper_prior[2][0], hyper_prior[2][1], hyper_prior[2][2], hyper_prior[2][3])
+
+		# ==== factor prior likelihood for gene
+		for f in range(n_factor):
+			# ==== Normal Gamma
+			like_log += loglike_Normal_Gamma(sparsity_prior[0][f], sparsity_prior[1][f][f], sparsity_hyper_prior[2], sparsity_hyper_prior[3], sparsity_hyper_prior[0], sparsity_hyper_prior[1])
+			# ==== Beta
+			like_log += loglike_Beta(sparsity_prior[3], sparsity_hyper_prior[4], sparsity_hyper_prior[5])
+
+		#TODO: Ask how if we need to include log-likelihood of z
+
+		# ==== precision/variance likelihood
+		like_log += loglike_Gamma(alpha, alpha_prior[0], alpha_prior[1])
+
+		return like_log
 
 
 
