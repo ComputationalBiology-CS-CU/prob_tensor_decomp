@@ -100,10 +100,11 @@ def load_dataset():
 	global dimension
 	global n_factor
 	# load fmlist from simulated data
-	fmlist.append(np.load('Individual.npy'))
-	fmlist.append(np.load('Gene.npy'))
+	fmlist.append(np.load('data/true_individual.npy'))
+	fmlist.append(np.load('data/true_gene.npy'))
 	prod = np.ones(n_factor)
 	factor_combination(dataset, fmlist, dimension, n_factor, 0, prod, [])
+	print dataset
 
 ##==== sampling from Gaussian (with mean and std)
 def sampler_Normal(mu, sigma):
@@ -134,6 +135,7 @@ def sampler_W(df, scale):
 
 ##==== sampling from Gamma, for the variance
 def sampler_Gamma(para1, para2):
+	para2 = 1.0/para2
 	x = np.random.gamma(para1, para2, 1)
 	return x[0]
 
@@ -176,7 +178,7 @@ def sampler_factor(factor_id):
 
 
 	# DEBUG
-	print "we'll sample factor matrix first..."
+	#print "we'll sample factor matrix first..."
 
 
 	#==== sample factor matrix
@@ -232,18 +234,15 @@ def sampler_factor(factor_id):
 		#== sampling
 
 		fmlist[factor_id][i] = sampler_MVN(mean, cov)
-
-
-	print fmlist[factor_id]
 	
 	# DEBUG
-	print "now we are sampling the prior..."
+	#print "now we are sampling the prior..."
 
 	#==== sample Gaussian-Wishart (Wishart first, then Gaussian) prior
 	#== sample Wishart first
 
 	# DEBUG
-	print "preparing and sampling Wishart first..."
+	#print "preparing and sampling Wishart first..."
 
 
 	# factor_mean
@@ -315,7 +314,7 @@ def sampler_factor(factor_id):
 
 
 	# DEBUG
-	print "now sampling MVN..."
+	#print "now sampling MVN..."
 
 	#== sample Gaussian
 	# beta new
@@ -342,6 +341,8 @@ def sampler_precision():
 	global markerset
 	global alpha
 
+	print "old alpha" + str(alpha)
+
 	para1_old = alpha_prior[0]
 	para2_old = alpha_prior[1]
 	n = 0
@@ -357,10 +358,13 @@ def sampler_precision():
 			s += math.pow(R_real - R_exp, 2)
 			n += 1
 
-	para1_new = para1_old + 0.5 * n
-	para2_new = para2_old + 0.5 * s
+	para1_new = para1_old + 0.5 * n/2
+	para2_new = para2_old + 0.5 * s/2
 
+	print "para2_new: " + str(para2_new)
 	alpha = sampler_Gamma(para1_new, para2_new)
+
+	print "alpha" + str(alpha)
 	return
 
 
@@ -368,9 +372,13 @@ def sampler_precision():
 ##==== log likelihood for univariate Gaussian
 def loglike_Gaussian(obs, mean, var):
 	#print obs, mean
+	#print "obs" + str(obs)
+	#print "mean" + str(mean)
+	#print "var" + str(var)
 	like_log = 0
 	like_log += (- math.log( math.sqrt(var) ))	# removed the \pi relevant constant item
 	like_log += (- (obs - mean) * (obs - mean) / (2 * var))
+	#print "ll" + str(like_log)
 	return like_log
 
 
@@ -404,7 +412,6 @@ def loglike_MVN(obs, mean, precision):
 def loglike_GW(obs1, obs2, scale, df, mean, scaler):
 	like_log = 0
 	# Wishart loglike
-	print type(df)
 	like_log += wishart.logpdf(obs2, df, scale)
 	# MVN loglike
 	# scaler the precision first
@@ -437,6 +444,7 @@ def loglike_joint():
 
 	like_log = 0
 
+
 	#==== observation likelihood
 	for i in range(n_individual):
 		for j in range(n_gene):
@@ -447,24 +455,35 @@ def loglike_joint():
 			mean = cal_product(i, j)
 			var = 1.0 / alpha
 			like_log += loglike_Gaussian(obs, mean, var)
+	print "gaussian: " + str(like_log)
 
 	#print "LL is ",like_log
 
 	#==== factor matrix likelihood
+	a = 0
 	for i in range(n_individual):
-		like_log += loglike_MVN(fmlist[0][i], prior[0][0], prior[0][1])
+		a += loglike_MVN(fmlist[0][i], prior[0][0], prior[0][1])
+	like_log += a
+	print "mvn_individual: " + str(a)
 	#for j in range(n_gene):
 	#	like_log += loglike_MVN(fm[1][j], prior[1][0], prior[1][1])
+	a = 0
 	for k in range(n_gene):
-		like_log += loglike_MVN(fmlist[1][k], prior[1][0], prior[1][1])
+		a += loglike_MVN(fmlist[1][k], prior[1][0], prior[1][1])
+	like_log += a
+	print "mvn_gene: " + str(a)
 
 	#==== factor prior likelihood
+	a = 0
 	for i in range(2):
-		like_log += loglike_GW(prior[i][0], prior[i][1], hyper_prior[i][0], hyper_prior[i][1], hyper_prior[i][2], hyper_prior[i][3])
-
+		a += loglike_GW(prior[i][0], prior[i][1], hyper_prior[i][0], hyper_prior[i][1], hyper_prior[i][2], hyper_prior[i][3])
+	like_log += a
+	print "gw: " + str(a)
 
 	#==== precision/variance likelihood
-	like_log += loglike_Gamma(alpha, alpha_prior[0], alpha_prior[1])
+	a = loglike_Gamma(alpha, alpha_prior[0], alpha_prior[1])
+	like_log += a
+	print "gamma: " + str(a)
 
 
 	return like_log
@@ -511,16 +530,33 @@ if __name__ == '__main__':
 	hyper_prior.append(hyper_prior1)
 	hyper_prior.append(hyper_prior2)
 	hyper_prior.append(hyper_prior3)
+
+
+	
 	for n in range(3):
 		# 4 parts here: scale matrix, df, mean, scaler of the precision matrix
 		
 		scale = np.identity(n_factor)
-		hyper_prior[n].append(np.load("precision.npy"))    # lambda
-		hyper_prior[n].append(np.int(np.load("v.npy")))		# TODO: tunable   v_0
-		hyper_prior[n].append(np.load("mu.npy"))		# TODO: tunable	 mu_0
-		hyper_prior[n].append(np.int(np.load("kappa.npy")))		# TODO: tunable  kappa_0
+		hyper_prior[n].append(np.load("data/precision.npy"))    # lambda
+		hyper_prior[n].append(np.int(np.load("data/v.npy")))		# TODO: tunable   v_0
+		hyper_prior[n].append(np.load("data/mu.npy"))		# TODO: tunable	 mu_0
+		hyper_prior[n].append(np.int(np.load("data/kappa.npy")))		# TODO: tunable  kappa_0
+	
 
+	'''
+	mu_0 = np.zeros(n_factor)
+	precision_0 = np.identity(n_factor)
 
+	# test some random parameters
+	for n in range(3):
+		# 4 parts here: scale matrix, df, mean, scaler of the precision matrix
+		
+		scale = np.identity(n_factor)
+		hyper_prior[n].append(precision_0)    # lambda precision
+		hyper_prior[n].append(60)		# TODO: tunable   v_0
+		hyper_prior[n].append(mu_0)		# TODO: tunable	 mu_0
+		hyper_prior[n].append(3)		# TODO: tunable  kappa_0
+	'''
 
 	#== the prior of MVN (mean and precision matrix)
 	prior1 = []
@@ -565,8 +601,8 @@ if __name__ == '__main__':
 		print "current iteration#",
 		print i+1
 		for j in range(2):
-			#print "sampling factor#",
-			#print j+1,
+			print "sampling factor#",
+			print j+1
 			#print "..."
 			sampler_factor(j)
 		#print "sample precision..."
@@ -577,7 +613,7 @@ if __name__ == '__main__':
 		ll_result.append(like_log)
 
 
-	fo = open("test.txt","w+")
+	fo = open("result/true_param.txt","w+")
 	for ele in ll_result:
 		fo.write(str(ele)+"\n")
 
