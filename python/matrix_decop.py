@@ -907,8 +907,10 @@ if __name__ == '__main__':
 
 
     #== drawing precision from Gaussian
-    # alpha = sampler_Normal(0, 1)
-    alpha = 0.5
+    alpha = sampler_Normal(0, 1)
+    while (alpha <= 0):
+        alpha = sampler_Normal(0,1)
+    # alpha = 0.5
 
 
     # DEBUG
