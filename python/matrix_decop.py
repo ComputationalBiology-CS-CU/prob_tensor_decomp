@@ -123,6 +123,11 @@ def deep_copy(v):
 
     return v_new
 
+def norm_pdf(mean, variance, p):
+    #This function is to calculate the pdf of a normal distribution given mean and variance at point p
+    out = 1/(math.sqrt(variance*2*math.pi))
+    return out*math.exp(-(p - mean)**2/(2 * variance))
+
 
 def cal_pR_0(n, k, num_factor):
     #TODO: Need to optimize here!
@@ -138,7 +143,7 @@ def cal_pR_0(n, k, num_factor):
 
     result = 0
 
-    print "Ready to calculate z_0"
+    #print "Ready to calculate z_0"
     for i in range(n_individual):
         for j in range(n_gene):
             if (markerset[i][j] != 0):
@@ -150,18 +155,16 @@ def cal_pR_0(n, k, num_factor):
                         c.append(cal_product_k(i,j,m))
                         product += c[-1]
 
-                if product == 0:
-                    print c
-
-                im = norm(product, alpha**(-1)).pdf(dataset[i][j])
+                im = norm_pdf(product, alpha**(-1), dataset[i][j])
                 if im == 0:
-                    print im
-                    print n, k, num_factor
-                    print product
-                    print alpha**(-1)
-                    print dataset[i][j]
+                    # print im
+                    # print n, k, num_factor
+                    # print product
+                    # print alpha**(-1)
+                    # print dataset[i][j]
+                    continue
                 else:
-                    result += math.log(norm(product, alpha**(-1)).pdf(dataset[i][j]))
+                    result += math.log(im)
 
     return math.exp(result)
 
@@ -177,7 +180,7 @@ def cal_pR_1(n,k):
     global n_individual
 
     #DEBUG
-    print 'Ready to calculate z_1'
+    #print 'Ready to calculate z_1'
 
     sigma2 = math.pow(alpha, -1)
     const = math.sqrt(2 * math.pi)
@@ -217,8 +220,8 @@ def cal_pR_1(n,k):
             #update count
             count += 1
 
-    sigma2_s = sum_frac_sigma2 + sparsity_prior[1][k][k]
-    mu_s = (sum_frac_mu + sparsity_prior[0][k]*sparsity_prior[1][k][k]) / sigma2_s
+    sigma2_s = 1/(sum_frac_sigma2 + sparsity_prior[1][k][k])
+    mu_s = (sum_frac_mu + sparsity_prior[0][k]*sparsity_prior[1][k][k]) * sigma2_s
     #Note: sparsity_prior[1] contains the precision matrix (sigma^2 = alpha^{-1}). The precision matrix is a diagonal matrix
 
     #Ready to calculate the final term
@@ -227,16 +230,16 @@ def cal_pR_1(n,k):
     # inner = sum_frac_mu2 + math.pow(sparsity_prior[0][k],2)*sparsity_prior[1][k][k] - mu_s * mu_s / sigma2_s
     # S = outter2 * math.exp(0 - inner/2)/outter
     outter = 0.5 * (math.log(sigma2_s) + math.log(sparsity_prior[1][k][k]) - sum_sigma2)
-    S = 0.5*(sum_frac_mu2 + math.pow(sparsity_prior[0][k],2)*sparsity_prior[1][k][k] - mu_s * mu_s * sigma2_s)
+    S = 0.5*(sum_frac_mu2 + math.pow(sparsity_prior[0][k],2)*sparsity_prior[1][k][k] - mu_s * mu_s / sigma2_s)
     result = frac + C + math.log(sparsity_prior[3][k]) - count/2*math.log(2 * math.pi) + outter - S
 
-    print "sigma2_s", sigma2_s
-    print "mu_s", mu_s
-
-    print "frac", frac
-    print "C", C
-    print "S", S
-    print "result", math.exp(result)
+    # print "sigma2_s", sigma2_s
+    # print "mu_s", mu_s
+    #
+    # print "frac", frac
+    # print "C", C
+    # print "S", S
+    # print "result", math.exp(result)
 
     return math.exp(result)
 
@@ -454,14 +457,11 @@ def sampler_factor_sparsity():
         p_k1 = []
         for k in range(n_factor):
             k0 = (1 - sparsity_prior[3][k]) * cal_pR_0(n, k, num_factor)
-            if k0 == 0.0:
-                p_k0.append(0.0)
-            else:
-                p_k0.append(math.log(k0))
+            p_k0.append(k0)
             p_k1.append(sparsity_prior[3][k] * cal_pR_1(n, k))
 
-        print p_k0
-        print p_k1
+        print "p_k0 is ", p_k0
+        print "p_k1 is ", p_k1
 
         p_0.append(p_k0)
         p_1.append(p_k1)
@@ -802,7 +802,7 @@ def loglike_joint_sparsity():
             # ==== Normal Gamma
             like_log += loglike_Normal_Gamma(sparsity_prior[0][f], sparsity_prior[1][f][f], sparsity_hyper_prior[2], sparsity_hyper_prior[3], sparsity_hyper_prior[0], sparsity_hyper_prior[1])
             # ==== Beta
-            like_log += loglike_Beta(sparsity_prior[3], sparsity_hyper_prior[4], sparsity_hyper_prior[5])
+            like_log += loglike_Beta(sparsity_prior[3][f], sparsity_hyper_prior[4], sparsity_hyper_prior[5])
 
         #TODO: Ask how if we need to include log-likelihood of z
 
