@@ -15,7 +15,6 @@ from scipy.stats import norm
 from scipy.stats import bernoulli
 import math
 from numpy import linalg as LA
-import sampler
 import sys
 from copy import *
 import timeit
@@ -24,9 +23,9 @@ import timeit
 ##=====================
 ##==== global variables
 ##=====================
-n_factor = 100
-n_individual = 400
-n_gene = 1000
+n_factor = 10
+n_individual = 40
+n_gene = 50
 dimension = (n_individual, n_gene)
 factor_name = {}
 dataset = np.zeros(shape=dimension) # individual x gene x tissue
@@ -123,13 +122,62 @@ def deep_copy(v):
 
     return v_new
 
+
+##==== sampling from Gaussian (with mean and std)
+def sampler_Normal(mu, sigma):
+    sample = np.random.normal(mu, sigma)
+    return sample
+
+
+
+##==== sampling from Multivariate Gaussian
+def sampler_MVN(mean, cov):
+    array = [0] * len(mean)
+    array = np.array(array)
+    #
+    x = np.random.multivariate_normal(mean, cov, 1).T
+    for i in range(len(x)):
+        y = x[i][0]
+        array[i] = y
+    return array
+
+
+##==== sampling from Wishart
+def sampler_W(df, scale):
+    #
+    sample = wishart.rvs(df, scale, size=1, random_state=None)
+    return sample
+
+
+##==== sampling from Gamma, for the variance
+def sampler_Gamma(para1, para2):
+    para2 = 1.0/para2
+    x = np.random.gamma(para1, para2, 1)
+    return x[0]
+
+## ==== sampling Beta
+def sampler_beta(a, b):
+    return np.random.beta(a, b)
+
+
+## ==== sampling Bernoulli
+def sampler_bernoulli(p, size):
+    return bernoulli.rvs(p, loc=0, size=size)
+
+
+## ==== sampling student-t
+def sampler_student_t(df, loc, scale):
+    return t.rvs(df, loc = loc, scale = scale)
+
+## ==== related function to sampler z
+
 def norm_pdf(mean, variance, p):
     #This function is to calculate the pdf of a normal distribution given mean and variance at point p
     out = 1/(math.sqrt(variance*2*math.pi))
     return out*math.exp(-(p - mean)**2/(2 * variance))
 
 
-def cal_pR_0(n, k, num_factor):
+def cal_pR_0(n, k):
     #TODO: Need to optimize here!
     #This function is to calculate the probability of z_0
     global markerset
@@ -145,28 +193,33 @@ def cal_pR_0(n, k, num_factor):
 
     #print "Ready to calculate z_0"
     for i in range(n_individual):
-        for j in range(n_gene):
-            if (markerset[i][j] != 0):
-                #Assuming each R_{ij}^{k} is independent to others
-                product = 0
-                c = []
-                for m in range(n_factor):
-                    if i != n and m != k:
-                        c.append(cal_product_k(i,j,m))
-                        product += c[-1]
+        if (markerset[i][n] != 0):
+            #Assuming each R_{ij}^{k} is independent to others
+            product = 0
+            for m in range(n_factor):
+                if m != k:
+                    product += cal_product_k(i,n,m)
 
-                im = norm_pdf(product, alpha**(-1), dataset[i][j])
-                if im == 0:
-                    # print im
-                    # print n, k, num_factor
-                    # print product
-                    # print alpha**(-1)
-                    # print dataset[i][j]
-                    continue
-                else:
-                    result += math.log(im)
 
-    return math.exp(result)
+            im = norm_pdf(product, alpha**(-1), dataset[i][n])
+            if im == 0:
+                # print "i, j: ", i, j
+                # print "im: ", im
+                # print "n, k and num_factor :", n, k, num_factor
+                # print "product: ",product
+                # print "sigma^2: ",alpha**(-1)
+                # print "dataset: ",dataset[i][j]
+                continue
+            else:
+                result += math.log(im)
+                # print "im is: ", im
+                # print "result is: ", result
+        # print "result: ", result
+
+
+    # print "result: ", result
+    # print "exp(result): ", math.exp(result)
+    return result
 
 def cal_pR_1(n,k):
     #This function is to calculate the probability of z_1
@@ -240,61 +293,318 @@ def cal_pR_1(n,k):
     # print "C", C
     # print "S", S
     # print "result", math.exp(result)
+    # print "result: ", result
+    return result
 
-    return math.exp(result)
+def cal_rest(n):
+    #TODO: Need to optimize here!
+    #This function is to calculate the probability of z_0
+    global markerset
+    global alpha
+    global n_factor
 
+    # print "Deep copy v"
+    # result = 1
+    # v = deep_copy(fmlist[num_factor])
+    # v[n][k] = 0
 
-##==== sampling from Gaussian (with mean and std)
-def sampler_Normal(mu, sigma):
-    sample = np.random.normal(mu, sigma)
-    return sample
+    result = 0
 
+    #print "Ready to calculate z_1 the rest"
+    for i in range(n_individual):
+        for j in range(n_gene):
+            if (markerset[i][j] != 0 and j != n):
+                #Assuming each R_{ij}^{k} is independent to others
+                product = 0
+                for m in range(n_factor):
+                    product += cal_product_k(i,j,m)
 
+                im = norm_pdf(product, alpha**(-1), dataset[i][j])
+                if im == 0:
+                    # print "i, j: ", i, j
+                    # print "im: ", im
+                    # print "n, k and num_factor :", n, k, num_factor
+                    # print "product: ",product
+                    # print "sigma^2: ",alpha**(-1)
+                    # print "dataset: ",dataset[i][j]
+                    continue
+                else:
+                    result += math.log(im)
+                    # print "im is: ", im
+                    # print "result is: ", result
 
-##==== sampling from Multivariate Gaussian
-def sampler_MVN(mean, cov):
-    array = [0] * len(mean)
-    array = np.array(array)
-    #
-    x = np.random.multivariate_normal(mean, cov, 1).T
-    for i in range(len(x)):
-        y = x[i][0]
-        array[i] = y
-    return array
+        # print "result: ", result
 
-
-##==== sampling from Wishart
-def sampler_W(df, scale):
-    #
-    sample = wishart.rvs(df, scale, size=1, random_state=None)
-    return sample
-
-
-##==== sampling from Gamma, for the variance
-def sampler_Gamma(para1, para2):
-    para2 = 1.0/para2
-    x = np.random.gamma(para1, para2, 1)
-    return x[0]
-
-## ==== sampling Beta
-def sampler_beta(a, b):
-    return np.random.beta(a, b)
-
-
-## ==== sampling Bernoulli
-def sampler_bernoulli(p, size):
-    return bernoulli.rvs(p, loc=0, size=size)
-
-
-## ==== sampling student-t
-def sampler_student_t(df, loc, scale):
-    return t.rvs(df, loc = loc, scale = scale)
-
-
-
+    # print "result: ", result
+    # print "exp(result): ", math.exp(result)
+    return result
 
 
 ##==== sample factor relevant components (the factor matrix, and its Gaussian-Wishart prior)
+
+def sampler_factor_sparsity():
+
+    global dataset
+    global fmlist
+    global prior
+    global hyper_prior
+    global n_factor
+    global alpha
+    global sparsity_prior
+    global sparsity_hyper_prior
+    global time
+
+    #Only gene dimension will have sparsity prior
+
+    dimension = n_gene
+    dimension1 = n_individual
+    num_factor = 1
+    num_factor_1 = 0
+
+    # DEBUG
+    print "we'll sample factor matrix first..."
+
+    start_z = timeit.default_timer()
+    #DEBUG
+    print "preparing to calculate z_0 and z_1..."
+    p_0 = []     #A n-by-k matrix contains all the probability of z_nk = 0
+    p_1 = []     #A n-by-k matrix contains all the probability of z_nk = 1
+
+    for n in range(dimension):
+        p_k0 = []
+        p_k1 = []
+        rest = cal_rest(n)
+        for k in range(n_factor):
+            k0 = math.log(1 - sparsity_prior[3][k]) + cal_pR_0(n, k) + rest
+            p_k0.append(k0)
+            k1 = math.log(sparsity_prior[3][k]) + cal_pR_1(n, k) + rest
+            p_k1.append(k1)
+
+        print "p_k0 is ", p_k0
+        print "p_k1 is ", p_k1
+
+        p_0.append(p_k0)
+        p_1.append(p_k1)
+
+
+    end_z = timeit.default_timer() - start_z
+    start_z2 = timeit.default_timer()
+
+    print "now sampling z"
+    #Note: bernoulli.rvs(p) takes p_1 (prob of getting a 1)
+    z = []
+    for i in range(dimension):
+        z_row = []
+        for k in range(n_factor):
+            #sampler_Bernoulli will return np.array object
+            logp1 = p_1[i][k]
+            logp0 = p_0[i][k]
+            diff = logp1 - logp0
+            if diff < math.log(sys.float_info.max):
+                ratio = math.exp(diff)
+                z_row.append(sampler_bernoulli(1/(1 + ratio), size=1)[0]) #loc = 0 by default in the sampler_bernoulli function
+            else:
+                z_row.append(sampler_bernoulli(0, size = 1)[0])
+        z.append(z_row)
+
+    sparsity_prior[2] = np.array(z)
+    print "z"
+    print sparsity_prior[2]
+
+    end_z2 = timeit.default_timer() - start_z2
+
+    #DEBUG
+    print "now sampling V"
+
+    start_v = timeit.default_timer()
+
+    #==== sample factor matrix
+    for dim in range(dimension):
+        # DEBUG
+        print "now sampling factor#",
+        print dim+1,
+        print "out of",
+        print dimension
+
+        #First pick out those with z == 1
+        '''
+        factor_ind = []
+        z = sparsity_prior[2]
+        for i in range(len(z[dim])):
+            if (z[dim][i] == 1):
+                factor_ind.append(i)
+        '''
+        factor_ind = []
+        factor_u = []
+        sparsity_mean = []
+        u = np.array(fmlist[num_factor_1])
+        for i in range(len(z[dim])):
+            if (z[dim][i] == 1):
+                factor_u.append(u.T[i])
+                factor_ind.append(i)
+                sparsity_mean.append(sparsity_prior[0][i])
+        factor_u = np.array(factor_u)
+        factor_u = factor_u.T
+
+
+
+        #== precision_matrix
+        precision_matrix = []
+        for count1 in range(len(factor_ind)):
+            count1_new = factor_ind[count1]
+            temp = []
+            for count2 in range(len(factor_ind)):
+                count2_new = factor_ind[count2]
+                value = sparsity_prior[1][count1_new][count2_new]	# initialize with the prior precision matrix, then later update
+                temp.append(value)
+            precision_matrix.append(temp)
+
+        precision_matrix = np.array(precision_matrix)
+        mean = np.dot(sparsity_mean, precision_matrix)
+        Q = []
+
+        for j in range(dimension1):
+            # re-arrange the three dimension, for querying original dataset
+            # hash_temp = {num_factor: dim, num_factor_1: j}
+            # index1 = hash_temp[0]
+            # index2 = hash_temp[1]
+            # index3 = hash_temp[2]
+            if markerset[j][dim] == 0:
+                continue
+            array = factor_u[j]
+            Q.append(array)
+            mean = np.add(mean, np.multiply(alpha, np.multiply(array, dataset[j][dim])))
+
+        Q = np.array(Q)
+        precision_matrix = np.add(precision_matrix, np.multiply(alpha, np.dot(Q.T, Q)))
+        cov = inv(precision_matrix)
+        # mean = np.dot(mean, cov.T)
+        mean = np.dot(mean, cov)
+
+        #== sampling
+        v_1 = sampler_MVN(mean, cov)
+        count = 0
+        re = []
+        for i in range(n_factor):
+            if i in factor_ind:
+                re.append(v_1[count])
+                count += 1
+            else:
+                re.append(0)
+
+        fmlist[num_factor][dim] = re
+
+    end_v = timeit.default_timer() - start_v
+
+    # for dim in range(dimension):
+    # 	# DEBUG
+    # 	print "now sampling factor#",
+    # 	print dim+1,
+    # 	print "out of",
+    # 	print dimension
+
+    # 	result_array = [0] * n_factor
+
+    # 	for m in range(n_factor):
+    # 		if (sparsity_prior[2][dim][m] != 0):
+    # 			result_array[m] = sampler_Normal(sparsity_prior[0][m], sparsity_prior[1][m])
+
+    # 	#== sampling
+    # 	fm[num_factor][dim] = result_array
+
+    # # DEBUG
+    # print "now we are sampling the prior..."
+
+
+    #==== sample Gaussian-Gamma (Gamma first, then Gaussian) prior
+    #== sample Gamma first
+
+    start_ng = timeit.default_timer()
+
+    #DEBUG
+    print "factor matrix - gene"
+    print fmlist[1]
+
+    # DEBUG
+    print "preparing and sampling Normal-Gamma..."
+    precision = []
+    mean = []
+    for k in range(n_factor):
+        v_n = []  #This is 1-dimensional vector V
+        for n in range(dimension):
+            if sparsity_prior[2][n][k] != 0:
+                v_n.append(fmlist[num_factor][n][k])
+        d = len(v_n)
+
+        #Now calcualte \bar{V}
+        v_bar = sum(v_n)/d
+
+        #Calcualte alpha_n
+        alpha_n = sparsity_hyper_prior[0] + d/2
+
+        #Calculate beta_n
+
+        diff_v2 = []  #This is (V_n - \bar{V})^2
+        for n in range(d):
+            diff_v2.append((v_n[n] - v_bar)**2)
+
+        beta_n = sparsity_hyper_prior[1] + sum(diff_v2)/2 + (sparsity_hyper_prior[3]*d*(v_bar - sparsity_hyper_prior[2])**2)/(2*(sparsity_hyper_prior[3] + d))
+
+        #Calculate kappa_n
+
+        kappa_n = sparsity_hyper_prior[3] + d
+
+        #Calculate mu_n
+
+        mu_n = (sparsity_hyper_prior[3] * sparsity_hyper_prior[2] + d * v_bar)/(kappa_n)
+
+        #Update mean
+
+        mean.append(sampler_student_t(2*alpha_n, mu_n, beta_n/(alpha_n * kappa_n)))
+
+        #Update precision
+
+        precision.append(sampler_Gamma(alpha_n, beta_n))
+
+    #DEBUG
+    print "Update sparsity prior (mean)..."
+
+    sparsity_prior[0] = mean
+
+    print "Make precision matrix"
+    precision_m = []
+    for i in range(len(precision)):
+        precision_each = i * [0] + [precision[i]] + (len(precision) - 1 - i)*[0]
+        precision_m.append(precision_each)
+
+    sparsity_prior[1] = precision_m
+
+    end_ng = timeit.default_timer() - start_ng
+
+    start_pi = timeit.default_timer()
+    #DEBUG
+    print "preparing and sampling pi..."
+
+    pi = []
+
+    for k in range(n_factor):
+        z_k = []    #Each column of z
+        for n in range(dimension):
+            z_k.append(sparsity_prior[2][n][k])
+
+        alpha_bar = sparsity_hyper_prior[4] + sum(z_k)
+        gamma_bar = sparsity_hyper_prior[5] + dimension - sum(z_k)
+
+        pi.append(sampler_beta(alpha_bar,gamma_bar))
+
+
+    sparsity_prior[3] = pi
+
+    end_pi = timeit.default_timer() - start_pi
+
+    time.append([end_z, end_z2,end_v, end_ng, end_pi])
+    return
+
 def sampler_factor(factor_id):
     global dataset
     global fmlist
@@ -423,240 +733,6 @@ def sampler_factor(factor_id):
     prior[factor_id][0] = sampler_MVN(mean, cov)
 
     #return
-
-def sampler_factor_sparsity():
-
-    global dataset
-    global fmlist
-    global prior
-    global hyper_prior
-    global n_factor
-    global alpha
-    global sparsity_prior
-    global sparsity_hyper_prior
-    global time
-
-    #Only gene dimension will have sparsity prior
-
-    dimension = n_gene
-    dimension1 = n_individual
-    num_factor = 1
-    num_factor_1 = 0
-
-    # DEBUG
-    print "we'll sample factor matrix first..."
-
-    start_z = timeit.default_timer()
-    #DEBUG
-    print "preparing to calculate z_0 and z_1..."
-    p_0 = []     #A n-by-k matrix contains all the probability of z_nk = 0
-    p_1 = []     #A n-by-k matrix contains all the probability of z_nk = 1
-
-    for n in range(dimension):
-        p_k0 = []
-        p_k1 = []
-        for k in range(n_factor):
-            k0 = (1 - sparsity_prior[3][k]) * cal_pR_0(n, k, num_factor)
-            p_k0.append(k0)
-            p_k1.append(sparsity_prior[3][k] * cal_pR_1(n, k))
-
-        print "p_k0 is ", p_k0
-        print "p_k1 is ", p_k1
-
-        p_0.append(p_k0)
-        p_1.append(p_k1)
-
-
-    end_z = timeit.default_timer() - start_z
-    start_z2 = timeit.default_timer()
-
-    print "now sampling z"
-    #Note: bernoulli.rvs(p) takes p_1 (prob of getting a 1)
-    z = []
-    for i in range(dimension):
-        #sampler_Bernoulli will return np.array object
-        z.append(sampler_bernoulli(sum(p_1[i])/(sum(p_0[i]) + sum(p_1[i])), size=n_factor)) #loc = 0 by default in the sampler_bernoulli function
-
-    sparsity_prior[2] = np.array(z)
-
-    end_z2 = timeit.default_timer() - start_z2
-
-    #DEBUG
-    print "now sampling V"
-
-    start_v = timeit.default_timer()
-
-    #==== sample factor matrix
-    for dim in range(dimension):
-        # DEBUG
-        print "now sampling factor#",
-        print dim+1,
-        print "out of",
-        print dimension
-
-        #First pick out those with z == 1
-        '''
-        factor_ind = []
-        z = sparsity_prior[2]
-        for i in range(len(z[dim])):
-            if (z[dim][i] == 1):
-                factor_ind.append(i)
-        '''
-        factor_ind = []
-        factor_u = []
-        sparsity_mean = []
-        u = np.array(fmlist[num_factor_1])
-        for i in range(len(z[dim])):
-            if (z[dim][i] == 1):
-                factor_u.append(u.T[i])
-                factor_ind.append(i)
-                sparsity_mean.append(sparsity_prior[0][i])
-        factor_u = np.array(factor_u)
-        factor_u = factor_u.T
-
-
-
-        #== precision_matrix
-        precision_matrix = []
-        for count1 in range(len(factor_ind)):
-            count1_new = factor_ind[count1]
-            temp = []
-            for count2 in range(len(factor_ind)):
-                count2_new = factor_ind[count2]
-                value = sparsity_prior[1][count1_new][count2_new]	# initialize with the prior precision matrix, then later update
-                temp.append(value)
-            precision_matrix.append(temp)
-
-        precision_matrix = np.array(precision_matrix)
-        mean = np.dot(sparsity_mean, precision_matrix)
-        Q = []
-
-        for j in range(dimension1):
-            # re-arrange the three dimension, for querying original dataset
-            # hash_temp = {num_factor: dim, num_factor_1: j}
-            # index1 = hash_temp[0]
-            # index2 = hash_temp[1]
-            # index3 = hash_temp[2]
-            if markerset[j][dim] == 0:
-                continue
-            array = factor_u[j]
-            Q.append(array)
-            mean = np.add(mean, np.multiply(alpha, np.multiply(array, dataset[j][dim])))
-
-        Q = np.array(Q)
-        precision_matrix = np.add(precision_matrix, np.multiply(alpha, np.dot(Q.T, Q)))
-        cov = inv(precision_matrix)
-        # mean = np.dot(mean, cov.T)
-        mean = np.dot(mean, cov)
-
-        #== sampling
-        fmlist[num_factor][dim] = sampler_MVN(mean, cov)
-
-    end_v = timeit.default_timer() - start_v
-
-    # for dim in range(dimension):
-    # 	# DEBUG
-    # 	print "now sampling factor#",
-    # 	print dim+1,
-    # 	print "out of",
-    # 	print dimension
-
-    # 	result_array = [0] * n_factor
-
-    # 	for m in range(n_factor):
-    # 		if (sparsity_prior[2][dim][m] != 0):
-    # 			result_array[m] = sampler_Normal(sparsity_prior[0][m], sparsity_prior[1][m])
-
-    # 	#== sampling
-    # 	fm[num_factor][dim] = result_array
-
-    # # DEBUG
-    # print "now we are sampling the prior..."
-
-
-    #==== sample Gaussian-Gamma (Gamma first, then Gaussian) prior
-    #== sample Gamma first
-
-    start_ng = timeit.default_timer()
-    # DEBUG
-    print "preparing and sampling Normal-Gamma..."
-    precision = []
-    mean = []
-    for k in range(n_factor):
-        v_n = []  #This is 1-dimensional vector V
-        for n in range(dimension):
-            if sparsity_prior[2][n][k] != 0:
-                v_n.append(fmlist[num_factor][n][k])
-        d = len(v_n)
-
-        #Now calcualte \bar{V}
-        v_bar = sum(v_n)/d
-
-        #Calcualte alpha_n
-        alpha_n = sparsity_hyper_prior[0] + d/2
-
-        #Calculate beta_n
-
-        diff_v2 = []  #This is (V_n - \bar{V})^2
-        for n in range(d):
-            diff_v2.append((v_n[n] - v_bar)**2)
-
-        beta_n = sparsity_hyper_prior[1] + sum(diff_v2)/2 + (sparsity_hyper_prior[3]*d*(v_bar - sparsity_hyper_prior[2])**2)/(2*(sparsity_hyper_prior[3] + d))
-
-        #Calculate kappa_n
-
-        kappa_n = sparsity_hyper_prior[3] + d
-
-        #Calculate mu_n
-
-        mu_n = (sparsity_hyper_prior[3] * sparsity_hyper_prior[2] + d * v_bar)/(kappa_n)
-
-        #Update mean
-
-        mean.append(sampler_student_t(2*alpha_n, mu_n, beta_n/(alpha_n * kappa_n)))
-
-        #Update precision
-
-        precision.append(sampler_Gamma(alpha_n, beta_n))
-
-    #DEBUG
-    print "Update sparsity prior (mean)..."
-
-    sparsity_prior[0] = mean
-
-    print "Make precision matrix"
-    precision_m = []
-    for i in range(len(precision)):
-        precision_each = i * [0] + [precision[i]] + (len(precision) - 1 - i)*[0]
-        precision_m.append(precision_each)
-
-    sparsity_prior[1] = precision_m
-
-    end_ng = timeit.default_timer() - start_ng
-
-    start_pi = timeit.default_timer()
-    #DEBUG
-    print "preparing and sampling pi..."
-
-    pi = []
-
-    for k in range(n_factor):
-        z_k = []    #Each column of z
-        for n in range(dimension):
-            z_k.append(sparsity_prior[2][n][k])
-
-        alpha_bar = sparsity_hyper_prior[4] + sum(z_k)
-        gamma_bar = sparsity_hyper_prior[5] + dimension - sum(z_k)
-
-        pi.append(sampler_beta(alpha_bar,gamma_bar))
-
-
-    sparsity_prior[3] = pi
-
-    end_pi = timeit.default_timer() - start_pi
-
-    time.append([end_z, end_z2,end_v, end_ng, end_pi])
-    return
 
 ##==== sampling precision
 def sampler_precision():
@@ -794,8 +870,6 @@ def loglike_joint_sparsity():
         # ==== factor prior likelihood for individual
         like_log += loglike_GW(prior[0][0], prior[0][1], hyper_prior[0][0], hyper_prior[0][1], hyper_prior[0][2], hyper_prior[0][3])
 
-        # ==== factor prior likelihood for tissue
-        like_log += loglike_GW(prior[2][0], prior[2][1], hyper_prior[2][0], hyper_prior[2][1], hyper_prior[2][2], hyper_prior[2][3])
 
         # ==== factor prior likelihood for gene
         for f in range(n_factor):
