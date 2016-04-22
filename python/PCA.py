@@ -2,11 +2,11 @@ from sklearn import *
 import numpy as np
 
 if __name__=="__main__":
-    n_individual  = 200
-    n_gene = 2000
+    n_individual  = 103
+    n_gene = 622
     n_factor = 40
 
-    X = np.load('data/mat_simulation.npy')
+    X = np.load('data/real_data.npy')
     pca = decomposition.PCA(n_components = n_factor)
     pca_ind = pca.fit_transform(X)
     pca_gene = pca.components_.T
@@ -14,9 +14,8 @@ if __name__=="__main__":
     print pca_gene.shape
 
 
-    np.save('data/pca_individual', pca_ind)
-    np.save('data/pca_gene', pca_gene)
-
+    np.save('data/real_individual', pca_ind)
+    np.save('data/real_gene', pca_gene)
 
 
     mu = np.mean(pca_ind, axis = 0)

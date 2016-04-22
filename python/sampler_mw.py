@@ -27,8 +27,8 @@ import timeit
 ##==== global variables
 ##=====================
 n_factor = 40
-n_individual = 200
-n_gene = 2000
+n_individual = 103
+n_gene = 622
 n_tissue = 30
 dimension = (n_individual, n_gene)
 factor_name = {}
@@ -100,8 +100,8 @@ def load_dataset():
 	global dimension
 	global n_factor
 	# load fmlist from simulated data
-	fmlist.append(np.load('data/true_individual.npy'))
-	fmlist.append(np.load('data/true_gene.npy'))
+	fmlist.append(np.load('data/real_individual.npy'))
+	fmlist.append(np.load('data/real_gene.npy'))
 	prod = np.ones(n_factor)
 	factor_combination(dataset, fmlist, dimension, n_factor, 0, prod, [])
 	print dataset
@@ -591,7 +591,6 @@ if __name__ == '__main__':
 	print "finish variables initialization..."
 
 
-
 	##==============================
 	##==== sampler calling iteration
 	##==============================
@@ -610,10 +609,12 @@ if __name__ == '__main__':
 		like_log = loglike_joint()	# monitor the log joint likelihood
 		#print "sampling done. the log joint likelihood is",
 		print like_log
+
+
 		ll_result.append(like_log)
 
 
-	fo = open("result/true_param.txt","w+")
+	fo = open("result/real_param.txt","w+")
 	for ele in ll_result:
 		fo.write(str(ele)+"\n")
 
