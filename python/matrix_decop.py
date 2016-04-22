@@ -24,9 +24,9 @@ import timeit
 ##=====================
 ##==== global variables
 ##=====================
-n_factor = 5
-n_individual = 30
-n_gene = 50
+n_factor = 100
+n_individual = 400
+n_gene = 1000
 dimension = (n_individual, n_gene)
 factor_name = {}
 dataset = np.zeros(shape=dimension) # individual x gene x tissue
@@ -107,8 +107,8 @@ def load_dataset():
     global dimension
     global n_factor
     # load fmlist from simulated data
-    fmlist.append(np.load('Individual.npy'))
-    fmlist.append(np.load('Gene.npy'))
+    fmlist.append(np.load('./data/Individual.npy'))
+    fmlist.append(np.load('./data/Gene.npy'))
     prod = np.ones(n_factor)
     factor_combination(dataset, fmlist, dimension, n_factor, 0, prod, [])
 
@@ -835,6 +835,8 @@ if __name__ == '__main__':
 
     # DEBUG
     print "finish data preparation..."
+    print "gene is ",
+    print fmlist[1]
 
 
     # DEBUG
@@ -859,10 +861,10 @@ if __name__ == '__main__':
         # 4 parts here: scale matrix, df, mean, scaler of the precision matrix
 
         scale = np.identity(n_factor)
-        hyper_prior[n].append(np.load("precision.npy"))    # lambda
-        hyper_prior[n].append(np.int(np.load("v.npy")))		# TODO: tunable   v_0
-        hyper_prior[n].append(np.load("mu.npy"))		# TODO: tunable	 mu_0
-        hyper_prior[n].append(np.int(np.load("kappa.npy")))		# TODO: tunable  kappa_0
+        hyper_prior[n].append(np.load("./data/precision.npy"))    # lambda
+        hyper_prior[n].append(np.int(np.load("./data/v.npy")))		# TODO: tunable   v_0
+        hyper_prior[n].append(np.load("./data/mu.npy"))		# TODO: tunable	 mu_0
+        hyper_prior[n].append(np.int(np.load("./data/kappa.npy")))		# TODO: tunable  kappa_0
 
 
 
@@ -886,16 +888,16 @@ if __name__ == '__main__':
     precision = np.identity(n_factor)
     sparsity_prior.append(deepcopy(mean))
     sparsity_prior.append(deepcopy(precision))
-    sparsity_prior.append(np.load("z.npy"))
-    sparsity_prior.append(np.load("pi_array.npy"))
+    sparsity_prior.append(np.load("./data/z.npy"))
+    sparsity_prior.append(np.load("./data/pi_array.npy"))
 
     sparsity_hyper_prior = []  # 0: alpha_0; 1: beta_0; 2: mu_0; 3: kappa_0; 4: alpha_pi; 5: gamma_pi
-    sparsity_hyper_prior.append(np.int(np.load("alpha_NG.npy")))
-    sparsity_hyper_prior.append(np.int(np.load("beta_NG.npy")))
-    sparsity_hyper_prior.append(np.int(np.load("mu_NG.npy")))
-    sparsity_hyper_prior.append(np.int(np.load("kappa_NG.npy")))
-    sparsity_hyper_prior.append(np.int(np.load("beta_alpha.npy")))
-    sparsity_hyper_prior.append(np.int(np.load("beta_beta.npy")))
+    sparsity_hyper_prior.append(np.int(np.load("./data/alpha_NG.npy")))
+    sparsity_hyper_prior.append(np.int(np.load("./data/beta_NG.npy")))
+    sparsity_hyper_prior.append(np.int(np.load("./data/mu_NG.npy")))
+    sparsity_hyper_prior.append(np.int(np.load("./data/kappa_NG.npy")))
+    sparsity_hyper_prior.append(np.int(np.load("./data/beta_alpha.npy")))
+    sparsity_hyper_prior.append(np.int(np.load("./data/beta_beta.npy")))
 
     #== the MVN drawing (mean 0, cov 1) for factorized matrices
     mean = np.array([0] * n_factor)
@@ -907,10 +909,10 @@ if __name__ == '__main__':
 
 
     #== drawing precision from Gaussian
-    alpha = sampler_Normal(0, 1)
-    while (alpha <= 0):
-        alpha = sampler_Normal(0,1)
-    # alpha = 0.5
+    # alpha = sampler_Normal(0, 1)
+    # while (alpha <= 0):
+    #     alpha = sampler_Normal(0,1)
+    alpha = 0.5
 
 
     # DEBUG
@@ -923,9 +925,10 @@ if __name__ == '__main__':
     ##==============================
     ITER = 100
     # ll_result = []
-    fo = open("test.txt", "w+")
-    f_time = open("time.txt", "w+")
+    fo = open("./result/test.txt", "w+")
+    f_time = open("./result/time.txt", "w+")
     for i in range(ITER):
+        time = []
         print "current iteration#",
         print i+1
         print "start to sample individual..."
@@ -937,16 +940,19 @@ if __name__ == '__main__':
         like_log = loglike_joint_sparsity()	# monitor the log joint likelihood
         #print "sampling done. the log joint likelihood is",
         print like_log
-        fo.write(str(like_log) + "\n")
+
+        turn = i + 1
+        fo.write(str(turn) + ": " + str(like_log) + "\n")
+        f_time.write(str(turn) + ": " + str(time) + "\n")
         # ll_result.append(like_log)
 
-    for t in time:
-        line = str(t) + ": "
-        for i in t:
-            line+=str(i) + ","
-        line = line[:-1]
-        line += "\n"
-        f_time.write(line)
+    # for t in time:
+    #     line = str(t) + ": "
+    #     for i in t:
+    #         line+=str(i) + ","
+    #     line = line[:-1]
+    #     line += "\n"
+    #     f_time.write(line)
 
     f_time.close()
     fo.close()
