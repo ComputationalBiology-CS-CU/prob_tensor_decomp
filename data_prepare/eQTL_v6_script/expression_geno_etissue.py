@@ -70,7 +70,7 @@ if __name__ == '__main__':
 	##==== get the sample-tissue mapping for all the samples
 	##==== target: phs000424.v6.pht002743.v6.p1.c1.GTEx_Sample_Attributes.GRU.txt_tissue_type
 	##========================================================================================
-	
+
 	file = open("../data/phs000424.v6.pht002743.v6.p1.c1.GTEx_Sample_Attributes.GRU.txt", 'r')
 	file1 = open("../data_processed/phs000424.v6.pht002743.v6.p1.c1.GTEx_Sample_Attributes.GRU.txt_sample_tissue_type", 'w')
 	count = 0
@@ -114,7 +114,7 @@ if __name__ == '__main__':
 	file.close()
 
 
-	
+
 	file = open("../data/GTEx_Analysis_v6_RNA-seq_RNA-SeQCv1.1.8_gene_rpkm.gct", 'r')
 	file1 = open("../data_processed/GTEx_Data_20150112_RNAseq_RNASeQCv1.1.8_gene_rpkm.gct_1_genotype", 'w')
 	file.readline()
@@ -151,15 +151,15 @@ if __name__ == '__main__':
 
 	file.close()
 	file1.close()
-	
+
 
 	##===================================================================================================
 	##==== counting samples in each tissue
 	##==== target: phs000424.v6.pht002743.v6.p1.c1.GTEx_Sample_Attributes.GRU.txt_tissue_type_count
 	##==== target: phs000424.v6.pht002743.v6.p1.c1.GTEx_Sample_Attributes.GRU.txt_tissue_type_count_#size
 	##===================================================================================================
-	
-	
+
+
 	file = open("../data_processed/phs000424.v6.pht002743.v6.p1.c1.GTEx_Sample_Attributes.GRU.txt_sample_tissue_type", 'r')
 	sample_tissue_map = {}
 	while 1:
@@ -180,7 +180,7 @@ if __name__ == '__main__':
 	file.close()
 
 
-	
+
 	# counting
 	file = open("../data_processed/GTEx_Data_20150112_RNAseq_RNASeQCv1.1.8_gene_rpkm.gct_1_genotype", 'r')
 	sample_list = (((file.readline()).strip()).split('\t'))[1:]
@@ -221,11 +221,3 @@ if __name__ == '__main__':
 		print "# of tissue with sample size >= " + str(filter) + ":",
 		print count
 		file.close()
-
-
-	
-	
-
-	
-
-

@@ -91,7 +91,7 @@ if __name__ == '__main__':
 			snp = line[1]
 			pos = line[2]
 			list_dosage = line[5:]
-			
+
 			if snp in rep_snp:
 				list_snp_name.append(snp)
 				list_snp_pos.append(pos)
@@ -119,6 +119,3 @@ if __name__ == '__main__':
 				dosage = rep_individual_snp[individual][i]
 				file.write(dosage + "\n")
 			file.close()
-
-
-
