@@ -14,8 +14,8 @@ import seaborn as sns
 ##==== global variables
 ##=====================
 n_factor = 40
-n_individual = 200
-n_gene = 2000
+n_individual = 450
+n_gene = 20000
 n_tissue = 30
 n_genotype = 10000
 #The following parameters need to be determined by test-and-trials
@@ -314,11 +314,11 @@ if __name__ == '__main__':
     print "draw product using seaborn..."
     
     # Draw the heatmap using seaborn
-#    sns_plot = sns.heatmap(product)
+    sns_plot = sns.heatmap(product)
     sns_plot = sns.heatmap(v)
 
     
-#    f.tight_layout()
+    #f.tight_layout()
     
     #DEBUG
     print "finish drawing product..."

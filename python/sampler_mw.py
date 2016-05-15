@@ -27,13 +27,13 @@ import timeit
 ##==== global variables
 ##=====================
 n_factor = 40
-n_individual = 103
-n_gene = 622
+n_individual = 1066
+n_gene = 585
 n_tissue = 30
 dimension = (n_individual, n_gene)
 factor_name = {}
 dataset = np.zeros(shape=dimension) # individual x gene x tissue
-markerset = np.ones(shape=dimension) # mark the position where there are data	
+markerset = np.ones(shape=dimension) # mark the position where there are data
 individual_rep = {}
 ##==== mapping: #1: individual; #2: gene; #3: tissue
 fmlist = []
@@ -83,8 +83,8 @@ def factor_combination(dataset, fmlist, dim_depth, n_factor, fm_depth, prod, pat
 	if fm_depth==len(fmlist):
 		ind_tup = tuple(path)
 		dataset[ind_tup] = np.sum(prod)
-		return 
-	
+		return
+
 	for i in range(dim_depth[fm_depth]):
 		new_prod = np.multiply(prod, fmlist[fm_depth][i])
 		path.append(i)
@@ -93,15 +93,15 @@ def factor_combination(dataset, fmlist, dim_depth, n_factor, fm_depth, prod, pat
 
 
 
-##==== this function will load 
+##==== this function will load
 def load_dataset():
 	global dataset
 	global fmlist
 	global dimension
 	global n_factor
 	# load fmlist from simulated data
-	fmlist.append(np.load('data/real_individual.npy'))
-	fmlist.append(np.load('data/real_gene.npy'))
+	fmlist.append(np.load('data/real_individual_brain_c22_quantile.npy'))
+	fmlist.append(np.load('data/real_gene_c22_quantile.npy'))
 	prod = np.ones(n_factor)
 	factor_combination(dataset, fmlist, dimension, n_factor, 0, prod, [])
 	print dataset
@@ -116,7 +116,7 @@ def sampler_MVN(mean, cov):
 	'''
 	array = [0] * len(mean)
 	array = np.array(array)
-	
+
 	x = np.random.multivariate_normal(mean, cov, 1)
 	for i in range(len(x[0])):
 		y = x[0][i]
@@ -144,8 +144,8 @@ def sampler_factor_helper(dataset, markerset, fmlist, dim_depth, n_factor, prod,
 	if fm_depth==len(fmlist):
 		if markerset[tuple(path)] == 0:
 			return
-		precision_matrix = np.add(precision_matrix, alpha*np.dot(np.array([array]).T,np.array([array]))) 
-		return 
+		precision_matrix = np.add(precision_matrix, alpha*np.dot(np.array([array]).T,np.array([array])))
+		return
 
 	if fm_depth!=factor_id:
 		for i in range(dim_depth[fm_depth]):
@@ -228,13 +228,13 @@ def sampler_factor(factor_id):
 
 			#array = np.multiply(fmlist[ids[0]][j], fmlist[ids[1]][k])
 			mean = np.add(alpha * dataset[(index1, index2)] * fmlist[ids[0]][j], mean)
-		
+
 		mean = np.dot(mean, cov)
 
 		#== sampling
 
 		fmlist[factor_id][i] = sampler_MVN(mean, cov)
-	
+
 	# DEBUG
 	#print "now we are sampling the prior..."
 
@@ -253,7 +253,7 @@ def sampler_factor(factor_id):
 	for i in range(dimension[factor_id]):
 		for j in range(n_factor):
 			factor_mean[j] += fmlist[factor_id][i][j]
-	
+
 	for i in range(n_factor):
 		factor_mean[i] = factor_mean[i] * 1.0 / dimension[factor_id]
 
@@ -265,7 +265,7 @@ def sampler_factor(factor_id):
 	for count1 in range(n_factor):
 		for count2 in range(n_factor):
 			factor_var[count1][count2] = factor_var[count1][count2] * 1.0 / dimension[factor_id]
-	
+
 	print factor_var
 	'''
 	# mw
@@ -273,7 +273,7 @@ def sampler_factor(factor_id):
 	for i in range(dimension[factor_id]):
 		for j in range(n_factor):
 			factor_mean[j] += fmlist[factor_id][i][j]
-	
+
 	for i in range(n_factor):
 		factor_mean[i] = factor_mean[i] * 1.0 / dimension[factor_id]
 
@@ -324,7 +324,7 @@ def sampler_factor(factor_id):
 
 	# mean
 	mean = (hyper_prior[factor_id][3] * hyper_prior[factor_id][2] + dimension[factor_id] * np.array(factor_mean)) / (hyper_prior[factor_id][3] + dimension[factor_id])
-	
+
 	# sampling MVN
 	prior[factor_id][0] = sampler_MVN(mean, cov)
 
@@ -506,7 +506,7 @@ if __name__ == '__main__':
 
 	# prepare the "dataset" and "markerset"
 	# data_prepare()
-	load_dataset()		
+	load_dataset()
 
 	# DEBUG
 	print "finish data preparation..."
@@ -532,16 +532,16 @@ if __name__ == '__main__':
 	hyper_prior.append(hyper_prior3)
 
 
-	
+
 	for n in range(3):
 		# 4 parts here: scale matrix, df, mean, scaler of the precision matrix
-		
+
 		scale = np.identity(n_factor)
 		hyper_prior[n].append(np.load("data/precision.npy"))    # lambda
 		hyper_prior[n].append(np.int(np.load("data/v.npy")))		# TODO: tunable   v_0
 		hyper_prior[n].append(np.load("data/mu.npy"))		# TODO: tunable	 mu_0
 		hyper_prior[n].append(np.int(np.load("data/kappa.npy")))		# TODO: tunable  kappa_0
-	
+
 
 	'''
 	mu_0 = np.zeros(n_factor)
@@ -550,7 +550,7 @@ if __name__ == '__main__':
 	# test some random parameters
 	for n in range(3):
 		# 4 parts here: scale matrix, df, mean, scaler of the precision matrix
-		
+
 		scale = np.identity(n_factor)
 		hyper_prior[n].append(precision_0)    # lambda precision
 		hyper_prior[n].append(60)		# TODO: tunable   v_0
@@ -594,7 +594,10 @@ if __name__ == '__main__':
 	##==============================
 	##==== sampler calling iteration
 	##==============================
-	ITER = 100
+
+	start_time = timeit.default_timer()
+
+	ITER = 15
 	ll_result = []
 	for i in range(ITER):
 		print "current iteration#",
@@ -610,15 +613,19 @@ if __name__ == '__main__':
 		#print "sampling done. the log joint likelihood is",
 		print like_log
 
+		# log the factor/loading matrix
+		np.save("result/ind_loading_brain_c22_quantile", fmlist[0])
+		np.save("result/gene_loading_brain_c22_quantile", fmlist[1])
 
 		ll_result.append(like_log)
 
+	elapsed = timeit.default_timer() - start_time
 
-	fo = open("result/real_param.txt","w+")
+	print "Time elapsed for sampling is ",
+	print elapsed
+
+	fo = open("result/quantile_pca_brain_c22.txt","w+")
 	for ele in ll_result:
 		fo.write(str(ele)+"\n")
 
 	fo.close()
-
-
-
