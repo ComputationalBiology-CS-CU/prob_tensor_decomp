@@ -26,8 +26,8 @@ pattern_indiv = re.compile(r'^(\w)+([\-])(\w)+')
 ##=====================
 ##==== global variables
 ##=====================
-n_factor = 40		# TODO: this is tunable, and the number 400 comes from results of other more complex methods; 40 is for one chr
-n_individual = 200		# the same magnitude
+n_factor = 40			# TODO: this is tunable, and the number 400 comes from results of other more complex methods; 40 is for one chr
+n_individual = 100		# the same magnitude
 n_gene = 2000			# 10% of the original
 n_tissue = 30			# the same magnitude
 '''
@@ -81,6 +81,7 @@ def sampler_W(df, scale):
 def sampler_Gamma(alpha, beta):
 	return np.random.gamma(alpha, beta, 1)[0]
 
+
 '''
 ## ==== sampling from Beta
 def sampler_beta(a, b):
@@ -133,12 +134,8 @@ def simulator_MVN(mean, cov, n_sample):
 
 
 
+
 if __name__ == '__main__':
-
-
-
-	#normalWishart = [[2,2],2,[[10,5],[5,10]],3]   #parameters of NW[mu, kappa, Lambda, v]
-
 
 
 	##================================
@@ -167,8 +164,6 @@ if __name__ == '__main__':
 	##================================
 	print "now start simulating..."
 
-
-
 	#==== individual factor matrix
 	precisionMatrix = sampler_W(normalWishart[3], normalWishart[2])
 	precisionMatrix_scaled = precisionMatrix * normalWishart[1]
@@ -181,6 +176,9 @@ if __name__ == '__main__':
 	cov = inv(precisionMatrix)
 	U = simulator_MVN(mu, cov, n_individual)
 	np.save("./para_data/Individual", U)
+
+	print "individual factor matrix:",
+	print len(U), len(U[0])
 
 
 	#==== gene factor matrix
@@ -196,47 +194,65 @@ if __name__ == '__main__':
 	V = simulator_MVN(mu, cov, n_gene)
 	np.save("./para_data/Gene", V)
 
-
-
-	print "dimension of simualted matrics:"
-	print "individual factor matrix:",
-	print len(u), len(u[0])
 	print "gene factor matrix:",
-	print len(v), len(v[0])
+	print len(V), len(V[0])
 
-	#product = np.dot(u, v).T
-	#np.save("IxG", product)
+
+	#==== tissue factor matrix
+	precisionMatrix = sampler_W(normalWishart[3], normalWishart[2])
+	precisionMatrix_scaled = precisionMatrix * normalWishart[1]
+	cov = inv(precisionMatrix_scaled)
+	mu = sampler_MVN(normalWishart[0], cov)
+	#
+	np.save("./para_data/Mu_tissue", mu)
+	np.save("./para_data/Lambda_tissue", precisionMatrix)
+	#
+	cov = inv(precisionMatrix)
+	W = simulator_MVN(mu, cov, n_tissue)
+	np.save("./para_data/Tissue", W)
+
+	print "tissue factor matrix:",
+	print len(W), len(W[0])
 
 
 
 
 	'''
-	#DEBUG
-	print "prepare to draw matrix..."
+	#==== the tensor
+	tensor = np.zeros((n_individual, n_gene))
+	U = U.T
+	V = V.T
+	for i in range(n_factor):
+		array_indiv = np.array(U[i])
+		array_gene = np.array(V[i])
+		tensor += np.outer(array_indiv, array_gene)
+	np.save("./para_data/Tensor", tensor)
 
-	sns.set(context="paper", font="monospace")
-	# Set up the matplotlib figure
-	f, ax = plt.subplots(figsize=(12, 9))
-
-
-	#DEBUG
-	print "draw product using seaborn..."
-
-	# Draw the heatmap using seaborn
-	#    sns_plot = sns.heatmap(product)
-	sns_plot = sns.heatmap(v)
-
-
-	#    f.tight_layout()
-
-	#DEBUG
-	print "finish drawing product..."
-
-	#DEBUG
-	print "saving figures..."
-
-	fig = sns_plot.get_figure()
-	fig.savefig("test.png")
+	print "tensor dimension:",
+	print len(tensor), len(tensor[0])
 	'''
+
+
+
+
+	#==== the tensor
+	U = U.T
+	V = V.T
+	for i in range(n_tissue):
+		tensor = np.zeros((n_individual, n_gene))
+		array_tissue = W[i]
+		for j in range(n_factor):
+			array_indiv = np.array(U[j])
+			array_gene = np.array(V[j])
+			factor_tissue = array_tissue[j]
+			tensor += factor_tissue * np.outer(array_indiv, array_gene)
+		np.save("./para_data/Tensor_tissue_" + str(i), tensor)
+
+		print "tissue#",
+		print i,
+		print "tensor dimension:",
+		print len(tensor), len(tensor[0])
+
+
 
 
