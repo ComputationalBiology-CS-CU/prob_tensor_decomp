@@ -19,13 +19,18 @@ import sys
 from copy import *
 import timeit
 
+np.set_printoptions(precision=2)
 
 ##=====================
 ##==== global variables
 ##=====================
-n_factor = 10
-n_individual = 40
-n_gene = 50
+# n_factor = 20
+# n_individual = 1066
+# n_gene = 585
+isSimulation = True
+n_factor = 20
+n_individual = 300
+n_gene = 100
 dimension = (n_individual, n_gene)
 factor_name = {}
 dataset = np.zeros(shape=dimension) # individual x gene x tissue
@@ -49,6 +54,12 @@ sparsity_hyper_prior = [] # 0: alpha_0; 1: beta_0; 2: mu_0; 3: kappa_0; 4: alpha
 
 alpha = 0		# the precision of the final observation
 alpha_prior = []	# 0: xxx; 1: xxx
+
+p_0 = []
+p_1 = []
+ng_like = 0
+gamma_like = 0
+beta_like = 0
 
 time = []
 
@@ -105,11 +116,19 @@ def load_dataset():
     global fmlist
     global dimension
     global n_factor
+    global isSimulation
     # load fmlist from simulated data
-    fmlist.append(np.load('./data/Individual.npy'))
-    fmlist.append(np.load('./data/Gene.npy'))
-    prod = np.ones(n_factor)
-    factor_combination(dataset, fmlist, dimension, n_factor, 0, prod, [])
+    if isSimulation:
+        fmlist.append(np.load('./data/Individual.npy'))
+        fmlist.append(np.load('./data/Gene.npy'))
+        dataset = np.load('./data/Product.npy')
+    else:
+        fmlist.append(np.load('./data/real_data/real_individual_brain_c22_quantile.npy'))
+        fmlist.append(np.load('./data/real_data/real_gene_brain_c22_quantile.npy'))
+        dataset = np.load('./data/real_data/real_data_brain_c22_quantile.npy')
+
+    # prod = np.ones(n_factor)
+    # factor_combination(dataset, fmlist, dimension, n_factor, 0, prod, [])
 
 ##==== Deep copy of gene matrix (used when calculate V~nk)
 def deep_copy(v):
@@ -132,14 +151,8 @@ def sampler_Normal(mu, sigma):
 
 ##==== sampling from Multivariate Gaussian
 def sampler_MVN(mean, cov):
-    array = [0] * len(mean)
-    array = np.array(array)
-    #
-    x = np.random.multivariate_normal(mean, cov, 1).T
-    for i in range(len(x)):
-        y = x[i][0]
-        array[i] = y
-    return array
+    x = np.random.multivariate_normal(mean, cov, 1)
+    return x[0]
 
 
 ##==== sampling from Wishart
@@ -183,6 +196,8 @@ def cal_pR_0(n, k):
     global markerset
     global alpha
     global n_factor
+    global dataset
+    global n_individual
 
     # print "Deep copy v"
     # result = 1
@@ -302,6 +317,7 @@ def cal_rest(n):
     global markerset
     global alpha
     global n_factor
+    global dataset
 
     # print "Deep copy v"
     # result = 1
@@ -349,10 +365,15 @@ def sampler_factor_sparsity():
     global prior
     global hyper_prior
     global n_factor
+    global n_individual
     global alpha
     global sparsity_prior
     global sparsity_hyper_prior
     global time
+    global p_0
+    global p_1
+    global ng_like
+    global beta_like
 
     #Only gene dimension will have sparsity prior
 
@@ -366,52 +387,43 @@ def sampler_factor_sparsity():
 
     start_z = timeit.default_timer()
     #DEBUG
-    print "preparing to calculate z_0 and z_1..."
+    print "sampling z..."
+    # Note: bernoulli.rvs(p) takes p_1 (prob of getting a 1)
     p_0 = []     #A n-by-k matrix contains all the probability of z_nk = 0
     p_1 = []     #A n-by-k matrix contains all the probability of z_nk = 1
+    z = []
+    ng_like = 0
 
     for n in range(dimension):
         p_k0 = []
         p_k1 = []
+        z_row = []
         rest = cal_rest(n)
         for k in range(n_factor):
             k0 = math.log(1 - sparsity_prior[3][k]) + cal_pR_0(n, k) + rest
-            p_k0.append(k0)
             k1 = math.log(sparsity_prior[3][k]) + cal_pR_1(n, k) + rest
-            p_k1.append(k1)
+            s = np.logaddexp(k1, k0)
+            prop1 = k1 - s
+            prop0 = k0 - s
+            p_k0.append(prop0)
+            p_k1.append(prop1)
+            ratio = math.exp(prop1)
+            # print ratio
+            z_row.append(sampler_bernoulli(ratio,size=1)[0])  # loc = 0 by default in the sampler_bernoulli function
 
-        print "p_k0 is ", p_k0
-        print "p_k1 is ", p_k1
+        # print "p_k0 is ", p_k0
+        # print "p_k1 is ", p_k1
+        z.append(z_row)
 
         p_0.append(p_k0)
         p_1.append(p_k1)
 
 
-    end_z = timeit.default_timer() - start_z
-    start_z2 = timeit.default_timer()
-
-    print "now sampling z"
-    #Note: bernoulli.rvs(p) takes p_1 (prob of getting a 1)
-    z = []
-    for i in range(dimension):
-        z_row = []
-        for k in range(n_factor):
-            #sampler_Bernoulli will return np.array object
-            logp1 = p_1[i][k]
-            logp0 = p_0[i][k]
-            diff = logp1 - logp0
-            if diff < math.log(sys.float_info.max):
-                ratio = math.exp(diff)
-                z_row.append(sampler_bernoulli(1/(1 + ratio), size=1)[0]) #loc = 0 by default in the sampler_bernoulli function
-            else:
-                z_row.append(sampler_bernoulli(0, size = 1)[0])
-        z.append(z_row)
-
     sparsity_prior[2] = np.array(z)
     print "z"
     print sparsity_prior[2]
 
-    end_z2 = timeit.default_timer() - start_z2
+    end_z = timeit.default_timer() - start_z
 
     #DEBUG
     print "now sampling V"
@@ -446,51 +458,54 @@ def sampler_factor_sparsity():
         factor_u = np.array(factor_u)
         factor_u = factor_u.T
 
-
-
-        #== precision_matrix
-        precision_matrix = []
-        for count1 in range(len(factor_ind)):
-            count1_new = factor_ind[count1]
-            temp = []
-            for count2 in range(len(factor_ind)):
-                count2_new = factor_ind[count2]
-                value = sparsity_prior[1][count1_new][count2_new]	# initialize with the prior precision matrix, then later update
-                temp.append(value)
-            precision_matrix.append(temp)
-
-        precision_matrix = np.array(precision_matrix)
-        mean = np.dot(sparsity_mean, precision_matrix)
-        Q = []
-
-        for j in range(dimension1):
-            # re-arrange the three dimension, for querying original dataset
-            # hash_temp = {num_factor: dim, num_factor_1: j}
-            # index1 = hash_temp[0]
-            # index2 = hash_temp[1]
-            # index3 = hash_temp[2]
-            if markerset[j][dim] == 0:
-                continue
-            array = factor_u[j]
-            Q.append(array)
-            mean = np.add(mean, np.multiply(alpha, np.multiply(array, dataset[j][dim])))
-
-        Q = np.array(Q)
-        precision_matrix = np.add(precision_matrix, np.multiply(alpha, np.dot(Q.T, Q)))
-        cov = inv(precision_matrix)
-        # mean = np.dot(mean, cov.T)
-        mean = np.dot(mean, cov)
-
-        #== sampling
-        v_1 = sampler_MVN(mean, cov)
-        count = 0
         re = []
-        for i in range(n_factor):
-            if i in factor_ind:
-                re.append(v_1[count])
-                count += 1
-            else:
-                re.append(0)
+        if len(factor_u) == 0:
+            re = [0] * n_factor
+
+        else:
+            #== precision_matrix
+            precision_matrix = []
+            for count1 in range(len(factor_ind)):
+                count1_new = factor_ind[count1]
+                temp = []
+                for count2 in range(len(factor_ind)):
+                    count2_new = factor_ind[count2]
+                    value = sparsity_prior[1][count1_new][count2_new]	# initialize with the prior precision matrix, then later update
+                    temp.append(value)
+                precision_matrix.append(temp)
+
+            precision_matrix = np.array(precision_matrix)
+            mean = np.dot(sparsity_mean, precision_matrix)
+            Q = []
+
+            for j in range(dimension1):
+                # re-arrange the three dimension, for querying original dataset
+                # hash_temp = {num_factor: dim, num_factor_1: j}
+                # index1 = hash_temp[0]
+                # index2 = hash_temp[1]
+                # index3 = hash_temp[2]
+                if markerset[j][dim] == 0:
+                    continue
+                array = factor_u[j]
+                Q.append(array)
+                mean = np.add(mean, np.multiply(alpha, np.multiply(array, dataset[j][dim])))
+
+            Q = np.array(Q)
+            precision_matrix = np.add(precision_matrix, np.multiply(alpha, np.dot(Q.T, Q)))
+            cov = inv(precision_matrix)
+            # mean = np.dot(mean, cov.T)
+            mean = np.dot(mean, cov)
+
+            #== sampling
+            v_1 = sampler_MVN(mean, cov)
+            count = 0
+
+            for i in range(n_factor):
+                if i in factor_ind:
+                    re.append(v_1[count])
+                    count += 1
+                else:
+                    re.append(0.0)
 
         fmlist[num_factor][dim] = re
 
@@ -525,6 +540,7 @@ def sampler_factor_sparsity():
     print "factor matrix - gene"
     print fmlist[1]
 
+
     # DEBUG
     print "preparing and sampling Normal-Gamma..."
     precision = []
@@ -537,7 +553,10 @@ def sampler_factor_sparsity():
         d = len(v_n)
 
         #Now calcualte \bar{V}
-        v_bar = sum(v_n)/d
+        if d == 0:
+            v_bar = 0
+        else:
+            v_bar = sum(v_n)/d
 
         #Calcualte alpha_n
         alpha_n = sparsity_hyper_prior[0] + d/2
@@ -558,18 +577,24 @@ def sampler_factor_sparsity():
 
         mu_n = (sparsity_hyper_prior[3] * sparsity_hyper_prior[2] + d * v_bar)/(kappa_n)
 
-        #Update mean
-
-        mean.append(sampler_student_t(2*alpha_n, mu_n, beta_n/(alpha_n * kappa_n)))
 
         #Update precision
 
-        precision.append(sampler_Gamma(alpha_n, beta_n))
+        p = sampler_Gamma(alpha_n, beta_n)
+        precision.append(p)
+
+        # Update mean
+        m = sampler_Normal(mu_n, math.sqrt(1/np.multiply(kappa_n, p)))
+        mean.append(m)
+
+        ng_like+=loglike_Gaussian(m, mu_n, 1/(kappa_n * p)) + loglike_Gamma(p, alpha_n, beta_n)
 
     #DEBUG
     print "Update sparsity prior (mean)..."
 
-    sparsity_prior[0] = mean
+    sparsity_prior[0] = np.array(mean)
+
+    print sparsity_prior[0]
 
     print "Make precision matrix"
     precision_m = []
@@ -577,7 +602,9 @@ def sampler_factor_sparsity():
         precision_each = i * [0] + [precision[i]] + (len(precision) - 1 - i)*[0]
         precision_m.append(precision_each)
 
-    sparsity_prior[1] = precision_m
+    sparsity_prior[1] = np.array(precision_m)
+
+    print sparsity_prior[1]
 
     end_ng = timeit.default_timer() - start_ng
 
@@ -586,6 +613,7 @@ def sampler_factor_sparsity():
     print "preparing and sampling pi..."
 
     pi = []
+    beta_like = 0
 
     for k in range(n_factor):
         z_k = []    #Each column of z
@@ -595,14 +623,23 @@ def sampler_factor_sparsity():
         alpha_bar = sparsity_hyper_prior[4] + sum(z_k)
         gamma_bar = sparsity_hyper_prior[5] + dimension - sum(z_k)
 
-        pi.append(sampler_beta(alpha_bar,gamma_bar))
+        # print "alpha"
+        # print alpha_bar
+        # print 'beta'
+        # print gamma_bar
+
+        pi_new = sampler_beta(alpha_bar,gamma_bar)
+
+        pi.append(pi_new)
+        beta_like += loglike_Beta(pi_new, alpha_bar, gamma_bar)
 
 
-    sparsity_prior[3] = pi
+    sparsity_prior[3] = np.array(pi)
+    print sparsity_prior[3]
 
     end_pi = timeit.default_timer() - start_pi
 
-    time.append([end_z, end_z2,end_v, end_ng, end_pi])
+    time.append([end_z,end_v, end_ng, end_pi])
     return
 
 def sampler_factor(factor_id):
@@ -715,6 +752,8 @@ def sampler_factor(factor_id):
     ## sampling Wishart
     prior[factor_id][1] = np.array(sampler_W(df, precision_matrix))
 
+    print prior[factor_id][1]
+
     # DEBUG
     print "now sampling MVN then..."
 
@@ -730,7 +769,8 @@ def sampler_factor(factor_id):
     hyper_prior[factor_id][3] + n_individual)
 
     # sampling MVN
-    prior[factor_id][0] = sampler_MVN(mean, cov)
+    prior[factor_id][0] = np.array(sampler_MVN(mean, cov))
+    print prior[factor_id][0]
 
     #return
 
@@ -742,11 +782,13 @@ def sampler_precision():
     global dataset
     global markerset
     global alpha
+    global gamma_like
 
     para1_old = alpha_prior[0]
     para2_old = alpha_prior[1]
     n = 0
     sum = 0
+    gamma_like = 0
 
     for i in range(n_individual):
         for j in range(n_gene):
@@ -762,6 +804,7 @@ def sampler_precision():
     para2_new = para2_old + 0.5 * sum
 
     alpha = sampler_Gamma(para1_new, para2_new)
+    gamma_like = loglike_Gamma(alpha, para1_new, para2_new)
     return
 
 
@@ -776,6 +819,8 @@ def loglike_Gaussian(obs, mean, var):
 
 ##==== log likelihood for multivariate Gaussian, TODO: removed constant terms
 def loglike_MVN(obs, mean, precision):
+    global n_factor
+
     like_log = 0
 
     # precision term
@@ -794,6 +839,29 @@ def loglike_MVN(obs, mean, precision):
     array3 = []
     temp = 0
     for i in range(n_factor):
+        temp += array1[i] * array2[i]
+    like_log += (- 0.5 * temp)
+    return like_log
+
+def loglike_MVN_sparsity(obs, mean, precision, length):
+    like_log = 0
+
+    # precision term
+    cov = inv(precision)
+    cov_norm = LA.norm(cov)
+    like_log += (- 0.5 * math.log(cov_norm))
+
+    # distance term
+    array1 = map(lambda x1,x2: x1-x2, obs, mean)
+    array2 = []
+    for i in range(length):
+        value = 0
+        for j in range(length):
+            value += array1[j] * precision[j][i]
+        array2.append(value)
+    array3 = []
+    temp = 0
+    for i in range(length):
         temp += array1[i] * array2[i]
     like_log += (- 0.5 * temp)
     return like_log
@@ -827,15 +895,16 @@ def loglike_Gamma(obs, para1, para2):
 def loglike_Normal_Gamma(obs1, obs2, mu, kappa, alpha, beta):
     #Note: obs1 == mean and obs2 == precision (univariate)
     like_log = 0
-    like_log += (alpha - 0.5) * math.log(obs2)
-    like_log += 0 - obs2 * 0.5 * (kappa * (obs1 - mu) * (obs1 - mu) + 2 * beta)
+    # like_log += (alpha - 0.5) * math.log(obs2)
+    # like_log += 0 - obs2 * 0.5 * (kappa * (obs1 - mu) * (obs1 - mu) + 2 * beta)
+    like_log += loglike_Gaussian(obs1, mu, 1/(kappa * obs2))
+    like_log += loglike_Gamma(obs2, alpha, beta)
 
     return like_log
 
 ##==== log likelihood for Beta without constant terms
 def loglike_Beta(obs, alpha, beta):
-    like_log = 0
-    like_log += (alpha - 1) * math.log(obs) + (beta - 1) * math.log(1 - obs)
+    like_log = (alpha - 1) * math.log(obs) + (beta - 1) * math.log(1 - obs)
     return like_log
 
 def loglike_joint_sparsity():
@@ -847,8 +916,15 @@ def loglike_joint_sparsity():
         global alpha_prior  # 0: shape parameter; 1: rate parameter
         global sparsity_prior  # 0: mean; 1: precision; 2: z; 3: pi
         global sparsity_hyper_prior  # 0: alpha_0; 1: beta_0; 2: mu_0; 3: kappa_0; 4: alpha_pi; 5: gamma_pi
+        global p_0
+        global p_1
+        global ng_like
+        global gamma_like
+        global beta_like
 
         like_log = 0
+
+        edml = 0
 
         # ==== edml
         for i in range(n_individual):
@@ -859,34 +935,118 @@ def loglike_joint_sparsity():
                 obs = dataset[i][j]
                 mean = cal_product(i, j)
                 var = 1.0 / alpha
-                like_log += loglike_Gaussian(obs, mean, var)
+                edml += loglike_Gaussian(obs, mean, var)
+
+        print "observation loglikelihood: ",
+        print edml
+
+        like_log += edml
 
         # ==== factor matrix likelihood
+        like_log_ind = 0
+
         for i in range(n_individual):
-            like_log += loglike_MVN(fmlist[0][i], prior[0][0], prior[0][1])
+            like_log_ind += loglike_MVN(fmlist[0][i], prior[0][0], prior[0][1])
+
+        print "individual loglikelihood: ",
+        print like_log_ind
+
+        like_log += like_log_ind
+
+        like_log_gene = 0
         for j in range(n_gene):
-            like_log += loglike_MVN(fmlist[1][j], sparsity_prior[0], sparsity_prior[1])
+            obs = []
+            m = []
+            pr = []
+            for k in range(n_factor):
+                if fmlist[1][j][k] != 0.0:
+                    obs.append(fmlist[1][j][k])
+                    m.append(sparsity_prior[0][k])
+                    pr.append(sparsity_prior[1][k][k])
+
+            if obs == []:
+                like_log_gene += 0.0
+            else:
+                like_log_gene += loglike_MVN_sparsity(obs, m, makeMatrix(pr, len(pr)), len(pr))
+
+
+        print "gene loglikelihood: ",
+        print like_log_gene
+
+        like_log += like_log_gene
 
         # ==== factor prior likelihood for individual
-        like_log += loglike_GW(prior[0][0], prior[0][1], hyper_prior[0][0], hyper_prior[0][1], hyper_prior[0][2], hyper_prior[0][3])
+        gw = loglike_GW(prior[0][0], prior[0][1], hyper_prior[0][0], hyper_prior[0][1], hyper_prior[0][2], hyper_prior[0][3])
 
+        print "individual GW loglikelihood: ",
+        print gw
+
+        like_log += gw
 
         # ==== factor prior likelihood for gene
+        beta = 0
+        ng = 0
         for f in range(n_factor):
             # ==== Normal Gamma
-            like_log += loglike_Normal_Gamma(sparsity_prior[0][f], sparsity_prior[1][f][f], sparsity_hyper_prior[2], sparsity_hyper_prior[3], sparsity_hyper_prior[0], sparsity_hyper_prior[1])
+            ng += loglike_Normal_Gamma(sparsity_prior[0][f], sparsity_prior[1][f][f], sparsity_hyper_prior[2], sparsity_hyper_prior[3], sparsity_hyper_prior[0], sparsity_hyper_prior[1])
             # ==== Beta
-            like_log += loglike_Beta(sparsity_prior[3][f], sparsity_hyper_prior[4], sparsity_hyper_prior[5])
+            beta += loglike_Beta(sparsity_prior[3][f], sparsity_hyper_prior[4], sparsity_hyper_prior[5])
 
-        #TODO: Ask how if we need to include log-likelihood of z
+        # beta = beta_like
+        # ng = ng_like
+
+        print "NG loglikelihood: ",
+        print ng
+
+        print "Beta loglikelihood: ",
+        print beta
+
+        like_log += ng
+        like_log += beta
+
+        # ==== sparsity likelihood z
+        z = sparsity_prior[2]
+        sparse = 0
+        for i in range(len(z)):
+            for j in range(len(z[i])):
+                if z[i][j] == 0:
+                    sparse += p_0[i][j]
+                else:
+                    sparse += p_1[i][j]
+
+
+        print "Sparse likelihood: ",
+        print sparse
+
+
+        like_log += sparse
 
         # ==== precision/variance likelihood
-        like_log += loglike_Gamma(alpha, alpha_prior[0], alpha_prior[1])
+        # prec = loglike_Gamma(alpha, alpha_prior[0], alpha_prior[1])
+        prec = gamma_like
 
-        return like_log
+        print "Precision loglikelihood: ",
+        print prec
+
+        like_log += prec
+
+        return (like_log, edml, like_log_ind, like_log_gene, gw, ng, beta, sparse, prec)
 
 
+def makeMatrix(aList, length):
+    result = []
+    for i in xrange(length):
+        r = []
+        for j in xrange(length):
+            if i != j:
+                r.append(0.0)
+            else:
+                r.append(aList[i])
 
+        result.append(r)
+
+
+    return result
 
 if __name__ == '__main__':
 
@@ -909,8 +1069,14 @@ if __name__ == '__main__':
 
     # DEBUG
     print "finish data preparation..."
-    print "gene is ",
+    print "gene - original "
     print fmlist[1]
+
+    print 'individual - original'
+    print fmlist[0]
+
+    print 'product - original'
+    print dataset
 
 
     # DEBUG
@@ -935,10 +1101,16 @@ if __name__ == '__main__':
         # 4 parts here: scale matrix, df, mean, scaler of the precision matrix
 
         scale = np.identity(n_factor)
-        hyper_prior[n].append(np.load("./data/precision.npy"))    # lambda
-        hyper_prior[n].append(np.int(np.load("./data/v.npy")))		# TODO: tunable   v_0
-        hyper_prior[n].append(np.load("./data/mu.npy"))		# TODO: tunable	 mu_0
-        hyper_prior[n].append(np.int(np.load("./data/kappa.npy")))		# TODO: tunable  kappa_0
+        if isSimulation:
+            hyper_prior[n].append(np.load("./data/precision.npy"))  # lambda
+            hyper_prior[n].append(np.int(np.load("./data/v.npy")))  # TODO: tunable   v_0
+            hyper_prior[n].append(np.load("./data/mu.npy"))  # TODO: tunable	 mu_0
+            hyper_prior[n].append(np.int(np.load("./data/kappa.npy")))  # TODO: tunable  kappa_0
+        else:
+            hyper_prior[n].append(np.load("./data/real_data/precision.npy"))    # lambda
+            hyper_prior[n].append(np.int(np.load("./data/real_data/v.npy")))		# TODO: tunable   v_0
+            hyper_prior[n].append(np.load("./data/real_data/mu.npy"))		# TODO: tunable	 mu_0
+            hyper_prior[n].append(np.int(np.load("./data/real_data/kappa.npy")))		# TODO: tunable  kappa_0
 
 
 
@@ -958,20 +1130,35 @@ if __name__ == '__main__':
 
     #== the prior of sparsity
     sparsity_prior = []  # 0: mean; 1: precision; 2: z; 3: pi
-    mean = np.array([0] * n_factor)
+    mean = np.array([2] * n_factor)
     precision = np.identity(n_factor)
     sparsity_prior.append(deepcopy(mean))
     sparsity_prior.append(deepcopy(precision))
-    sparsity_prior.append(np.load("./data/z.npy"))
-    sparsity_prior.append(np.load("./data/pi_array.npy"))
+    if isSimulation:
+        sparsity_prior.append(np.load("./data/z.npy"))
+        sparsity_prior.append(np.load("./data/pi_array.npy"))
+    else:
+        sparsity_prior.append(np.load("./data/real_data/z.npy"))
+    # sparsity_prior.append(np.array([0.5]*n_factor))
+        sparsity_prior.append(np.load("./data/real_data/pi_array.npy"))
+    print "pi"
+    print sparsity_prior[3]
 
     sparsity_hyper_prior = []  # 0: alpha_0; 1: beta_0; 2: mu_0; 3: kappa_0; 4: alpha_pi; 5: gamma_pi
-    sparsity_hyper_prior.append(np.int(np.load("./data/alpha_NG.npy")))
-    sparsity_hyper_prior.append(np.int(np.load("./data/beta_NG.npy")))
-    sparsity_hyper_prior.append(np.int(np.load("./data/mu_NG.npy")))
-    sparsity_hyper_prior.append(np.int(np.load("./data/kappa_NG.npy")))
-    sparsity_hyper_prior.append(np.int(np.load("./data/beta_alpha.npy")))
-    sparsity_hyper_prior.append(np.int(np.load("./data/beta_beta.npy")))
+    if isSimulation:
+        sparsity_hyper_prior.append(np.int(np.load("./data/alpha_NG.npy")))
+        sparsity_hyper_prior.append(np.int(np.load("./data/beta_NG.npy")))
+        sparsity_hyper_prior.append(np.int(np.load("./data/mu_NG.npy")))
+        sparsity_hyper_prior.append(np.int(np.load("./data/kappa_NG.npy")))
+        sparsity_hyper_prior.append(np.int(np.load("./data/beta_alpha.npy")))
+        sparsity_hyper_prior.append(np.int(np.load("./data/beta_beta.npy")))
+    else:
+        sparsity_hyper_prior.append(np.int(np.load("./data/real_data/alpha_NG.npy")))
+        sparsity_hyper_prior.append(np.int(np.load("./data/real_data/beta_NG.npy")))
+        sparsity_hyper_prior.append(np.int(np.load("./data/real_data/mu_NG.npy")))
+        sparsity_hyper_prior.append(np.int(np.load("./data/real_data/kappa_NG.npy")))
+        sparsity_hyper_prior.append(np.int(np.load("./data/real_data/beta_alpha.npy")))
+        sparsity_hyper_prior.append(np.int(np.load("./data/real_data/beta_beta.npy")))
 
     #== the MVN drawing (mean 0, cov 1) for factorized matrices
     mean = np.array([0] * n_factor)
@@ -979,14 +1166,14 @@ if __name__ == '__main__':
     cov = np.identity(n_factor)
 
     #== set the prior for precision (Gamma)
-    alpha_prior = [1, 0.5]		# shape parameter and rate parameter, TODO: tunable
+    alpha_prior = [0.5, 1]		# shape parameter and rate parameter, TODO: tunable
 
 
     #== drawing precision from Gaussian
     # alpha = sampler_Normal(0, 1)
     # while (alpha <= 0):
     #     alpha = sampler_Normal(0,1)
-    alpha = 0.5
+    alpha = 0.1
 
 
     # DEBUG
@@ -997,7 +1184,7 @@ if __name__ == '__main__':
     ##==============================
     ##==== sampler calling iteration
     ##==============================
-    ITER = 100
+    ITER = 30
     # ll_result = []
     fo = open("./result/test.txt", "w+")
     f_time = open("./result/time.txt", "w+")
@@ -1011,13 +1198,16 @@ if __name__ == '__main__':
         sampler_factor_sparsity()
         print "sample precision..."
         sampler_precision()
-        like_log = loglike_joint_sparsity()	# monitor the log joint likelihood
+
+        (like_log, edml, like_log_ind, like_log_gene, gw, ng, beta, sparse, prec) = loglike_joint_sparsity()	# monitor the log joint likelihood
         #print "sampling done. the log joint likelihood is",
         print like_log
 
         turn = i + 1
-        fo.write(str(turn) + ": " + str(like_log) + "\n")
-        f_time.write(str(turn) + ": " + str(time) + "\n")
+        fo.write(str(turn) + "," + str(like_log) + "," + str(edml) + "," + str(like_log_ind) + "," + str(like_log_gene) + "," + str(gw) + "," + str(ng) + "," + str(beta) + "," + str(sparse) + "," + str(prec) + "\n")
+        fo.flush()
+        f_time.write(str(turn) + "," + str(time) + "\n")
+        f_time.flush()
         # ll_result.append(like_log)
 
     # for t in time:
@@ -1030,6 +1220,9 @@ if __name__ == '__main__':
 
     f_time.close()
     fo.close()
+    np.save("./result/gene_result.npy", fmlist[1])
+    np.save("./result/ind_result.npy", fmlist[0])
+
 
 
 

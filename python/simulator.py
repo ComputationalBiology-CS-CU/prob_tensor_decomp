@@ -8,19 +8,19 @@ from scipy.stats import bernoulli
 import math
 from numpy import linalg as LA
 import matplotlib.pyplot as plt
-import seaborn as sns
+# import seaborn as sns
 
 ##=====================
 ##==== global variables
 ##=====================
-n_factor = 0
+n_factor = 0 #Note: Don't change value here; change below
 n_individual = 0
 n_gene = 0
-n_tissue = 0
+# n_tissue = 0
 #The following parameters need to be determined by test-and-trials
 #According to Barbara, they used alpha=beta=1 for the uniform on sparsity
 #alpha = 1 beta = 2 is a line of y = -2x + 2
-beta = [1,2]                #parameters of beta[alpha, beta]
+beta = [1,1]                #parameters of beta[alpha, beta]
 normalGamma = [1,2,1,2]     #parameters of NG[mu, kappa, alpha, beta]
 normalWishart = [[2,2],2,[[10,5],[5,10]],3]   #parameters of NW[mu, kappa, Lambda, v]
 
@@ -106,17 +106,6 @@ def sampler_Normal(mu, sigma):
     return sample
 
 
-##==== sampling from Multivariate Gaussian
-def sampler_MVN(mean, cov):
-    array = [0] * len(mean)
-    array = np.array(array)
-    #
-    x = np.random.multivariate_normal(mean, cov, 1).T
-    for i in range(len(x)):
-        y = x[i][0]
-        array[i] = y
-    return array
-
 
 ##==== sampling from Wishart
 def sampler_W(df, scale):
@@ -147,6 +136,7 @@ def simulator_spike_slab():
     #First, simulate Beta-Bernoulli conjugate prior
     z = []     #n_factor * n_gene array
     v = []     #n_factor * n_gene array
+    pi_array = []    #n_factor array
 
     #initiate v to all zeros
     for i in range(n_factor):
@@ -159,6 +149,7 @@ def simulator_spike_slab():
     for i in range(n_factor):
         pi = sampler_beta(beta[0], beta[1])
         z.append(bernoulli.rvs(pi, size = n_gene))
+        pi_array.append(pi)
 
     #simulate v
     for i in range(n_factor):
@@ -166,6 +157,9 @@ def simulator_spike_slab():
             if (z[i][j] != 0):
                 sigma = sampler_Gamma(normalGamma[2], normalGamma[3])
                 v[i][j] = sampler_Normal(normalGamma[0], sigma/normalGamma[1])
+
+    np.save("z", np.array(z).T)
+    np.save("pi_array", np.array(pi_array))
 
     return np.array(v)
 
@@ -349,7 +343,7 @@ if __name__ == '__main__':
     ##==================================
     ##==== loading and preparing dataset
     ##==================================
-    data_prepare()			# prepare the "dataset" and "markerset"
+    # data_prepare()			# prepare the "dataset" and "markerset"
 
 
 
@@ -363,7 +357,9 @@ if __name__ == '__main__':
     ##================================
     ##==== initialize global variables
     ##================================
-    n_factor = 400			# TODO: this is tunable, and the number 400 comes from results of other more complex methods
+    n_factor = 20			# TODO: this is tunable, and the number 400 comes from results of other more complex methods
+    n_individual = 300
+    n_gene = 100
     useSpike = True
 
     #initialize normal wishart parameter
@@ -384,6 +380,22 @@ if __name__ == '__main__':
     normalWishart[0] = mu
     normalWishart[2] = precision
     normalWishart[3] = n_factor + 1
+
+    np.save("mu", normalWishart[0])
+    np.save("kappa", normalWishart[1])
+    np.save("precision", normalWishart[2])
+    np.save("v", normalWishart[3])
+
+    #initialize sparsity parameter
+    beta = [2, 2]  # parameters of beta[alpha, beta]
+    normalGamma = [1, 2, 1, 2]  # parameters of NG[mu, kappa, alpha, beta]
+
+    np.save("beta_alpha", beta[0])
+    np.save("beta_beta", beta[1])
+    np.save("mu_NG", normalGamma[0])
+    np.save("kappa_NG", normalGamma[1])
+    np.save("alpha_NG", normalGamma[2])
+    np.save("beta_NG", normalGamma[3])
 
     #DEBUG
     print "finish initializing all the variables..."
@@ -412,11 +424,17 @@ if __name__ == '__main__':
         v = simulator_MVN(n_gene, True)
         u = simulator_MVN(n_individual, False)
 
+    np.save("Individual", u)
+    np.save("Gene", v.T)
+    print v.shape
+    print u.shape
 
     #DEBUG
     print "matrix multiplication..."
 
-    product = np.dot(u, v).T
+    product = np.dot(u, v)
+    np.save("Product", product)
+    print product.shape
 
     '''
 
