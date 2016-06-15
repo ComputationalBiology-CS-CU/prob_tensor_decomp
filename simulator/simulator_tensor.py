@@ -1,3 +1,7 @@
+## this simulation is for gene expression tensor, without genotype
+## we will probably try the Sparsity prior for tensor decomposition later on (L_p, ARD, Spike and Slab); NOTE: here I commented all the Spike and Slab code
+
+
 ##===============
 ##==== libraries
 ##===============
@@ -7,6 +11,7 @@ from scipy.stats import wishart
 from scipy.stats import bernoulli
 import math
 from numpy import linalg as LA
+from numpy.linalg import inv
 #import matplotlib.pyplot as plt				# not supported in C2B2 cluster
 #import seaborn as sns						# not supported in C2B2 cluster
 import re
@@ -17,20 +22,22 @@ pattern_indiv = re.compile(r'^(\w)+([\-])(\w)+')
 
 
 
+
 ##=====================
 ##==== global variables
 ##=====================
-n_factor = 40
-n_individual = 200
-n_gene = 2000
-n_tissue = 30
-n_genotype = 10000
+n_factor = 40		# TODO: this is tunable, and the number 400 comes from results of other more complex methods; 40 is for one chr
+n_individual = 200		# the same magnitude
+n_gene = 2000			# 10% of the original
+n_tissue = 30			# the same magnitude
+'''
 #The following parameters need to be determined by test-and-trials
 #According to Barbara, they used alpha=beta=1 for the uniform on sparsity
 #alpha = 1 beta = 2 is a line of y = -2x + 2
 beta = [1,2]                #parameters of beta[alpha, beta]
 normalGamma = [1,2,1,2]     #parameters of NG[mu, kappa, alpha, beta]
-normalWishart = [[2,2],2,[[10,5],[5,10]],3]   #parameters of NW[mu, kappa, Lambda, v]
+'''
+normalWishart = [[2,2],2,[[10,5],[5,10]],3]   #priors of NW[mu, kappa, Lambda, v]
 
 
 
@@ -44,7 +51,7 @@ def get_individual_id(s):
 	if match:
 		return match.group()
 	else:
-		print "no individual ID is found..."
+		print "!!! no individual ID is found..."
 		return ""
 
 
@@ -56,37 +63,36 @@ def sampler_Normal(mu, sigma):
 
 ##==== sampling from Multivariate Gaussian
 def sampler_MVN(mean, cov):
-	array = [0] * len(mean)
-	array = np.array(array)
-	#
+	array = np.zeros(len(mean))
 	x = np.random.multivariate_normal(mean, cov, 1).T
 	for i in range(len(x)):
 		y = x[i][0]
 		array[i] = y
 	return array
 
+
 ##==== sampling from Wishart
 def sampler_W(df, scale):
-	#
 	sample = wishart.rvs(df, scale, size=1, random_state=None)
-	#matrix = sample[0]
 	return sample
 
 
-##==== sampling from Gamma
+##==== sampling from Gamma (for precision of the uni-Gaussian)
 def sampler_Gamma(alpha, beta):
-	precision = 0
-	x = np.random.gamma(alpha, beta, 1)
-	precision = x[0]
-	return precision
+	return np.random.gamma(alpha, beta, 1)[0]
 
-
-## ==== sampling Beta
+'''
+## ==== sampling from Beta
 def sampler_beta(a, b):
 	return np.random.beta(a, b)
+'''
+
+
+
 
 
 ## ==== Start to simulate
+'''
 def simulator_spike_slab():
 	#First, simulate Beta-Bernoulli conjugate prior
 	z = []     #n_factor * n_gene array
@@ -103,62 +109,27 @@ def simulator_spike_slab():
 	for i in range(n_factor):
 		pi = sampler_beta(beta[0], beta[1])
 		z.append(bernoulli.rvs(pi, size = n_gene))
+	z = np.array(z)
 
 	#simulate v
 	for i in range(n_factor):
 		for j in range(n_gene):
 			if (z[i][j] != 0):
-				sigma = sampler_Gamma(normalGamma[2], normalGamma[3])
-				v[i][j] = sampler_Normal(normalGamma[0], sigma/normalGamma[1])
-
+				lamb = sampler_Gamma(normalGamma[2], normalGamma[3])
+				v[i][j] = sampler_Normal( normalGamma[0], 1.0/(lamb*normalGamma[1]) )
+	v = np.array(v)
 	return v
-
-
-def simulator_MVN(n_sample, isTrans):
-	u = []
-
-	for sample in range(n_sample):
-		precisionMatrix = sampler_W(normalWishart[3], normalWishart[2])
-		precisionMatrix_scaled = []
-		for i in range(len(precisionMatrix)):
-			temp = []
-			for j in range(len(precisionMatrix[0])):
-				temp.append(precisionMatrix[i][j]/normalWishart[1])
-			precisionMatrix_scaled.append(temp)
-		mu = np.random.multivariate_normal(normalWishart[0], precisionMatrix_scaled)
-		u.append(np.random.multivariate_normal(mu, precisionMatrix))
-
-	if (isTrans):
-		return np.array(u).T
-	else:
-		return u
-
-
 '''
-def compare_sparsity (v1, v2):
-	k1 = len(n_gene)
-	k2 = len(n_gene)
-
-	sigma = []   #correlation matrix K1-by-K2
-	for i in range(n_factor):
-		sigma_row = []
-		for j in range(n_factor):
-		    sigma_row.append(calc_corr(v1[i], v2[j]))
-		sigma.append(sigma_row)
-
-	sum_col = 0
-	for row in range(len(sigma)):
-		for col in range(len(sigma[row])):
-		    #TODO!
-		    continue
-
-	sum_col = 0
 
 
-def calc_corr (col1, col2):
-	#TODO!
-	return
-'''
+def simulator_MVN(mean, cov, n_sample):
+	M = []
+	for i in range(n_sample):
+		sample = sampler_MVN(mean, cov)
+		M.append(sample)
+	M = np.array(M)
+	return M
+
 
 
 
@@ -166,86 +137,76 @@ if __name__ == '__main__':
 
 
 
-	# DEBUG
-	print "enter program..."
+	#normalWishart = [[2,2],2,[[10,5],[5,10]],3]   #parameters of NW[mu, kappa, Lambda, v]
 
-
-	# DEBUG
-	print "now start preparing the data..."
-
-
-
-	##==================================
-	##==== loading and preparing dataset
-	##==================================
-	'''
-	data_prepare()          # prepare the "dataset" and "markerset"
-	'''
-
-
-
-	# DEBUG
-	print "finish data preparation..."
-
-
-	# DEBUG
-	print "now initializing all the variables..."
 
 
 	##================================
 	##==== initialize global variables
 	##================================
-	#n_factor = 400          # TODO: this is tunable, and the number 400 comes from results of other more complex methods
-	useSpike = True
+	print "now initializing all the variables..."
 
 	#initialize normal wishart parameter
-	mu = []
-	precision = []
-	for i in range(n_factor):
-		mu.append(0)
-
-	for i in range(n_factor):
-		temp = []
-		for j in range(n_factor):
-		    if (i == j):
-			temp.append(1)
-		    else:
-			temp.append(0)
-		precision.append(temp)
+	#normalWishart = [[2,2],2,[[10,5],[5,10]],3]   #parameters of NW[mu, kappa, Lambda, v]
+	mu = np.zeros(n_factor)
+	precision = np.identity(n_factor)
 
 	normalWishart[0] = mu
 	normalWishart[2] = precision
-	normalWishart[3] = n_factor + 1
+	normalWishart[3] = n_factor		# TODO: greater than or equal to n_factor
 
-	np.save("mu", normalWishart[0])
-	np.save("kappa", normalWishart[1])
-	np.save("precision", normalWishart[2])
-	np.save("v", normalWishart[3])
+	np.save("./para_data/mu", normalWishart[0])
+	np.save("./para_data/kappa", normalWishart[1])
+	np.save("./para_data/precision", normalWishart[2])
+	np.save("./para_data/v", normalWishart[3])
 
-	#print normalWishart[0]
-	#print normalWishart[2]
-	#print normalWishart[3]
 
-	#DEBUG
-	print "finish initializing all the variables..."
 
-	#DEBUG
-	print "now start simulation..."
+	##================================
+	##==== simulation
+	##================================
+	print "now start simulating..."
 
-	v = simulator_MVN(n_gene, False)
-	u = simulator_MVN(n_individual, False)
 
-	np.save("Individual", u)
-	np.save("Gene", v)
 
+	#==== individual factor matrix
+	precisionMatrix = sampler_W(normalWishart[3], normalWishart[2])
+	precisionMatrix_scaled = precisionMatrix * normalWishart[1]
+	cov = inv(precisionMatrix_scaled)
+	mu = sampler_MVN(normalWishart[0], cov)
+	#
+	np.save("./para_data/Mu_indiv", mu)
+	np.save("./para_data/Lambda_indiv", precisionMatrix)
+	#
+	cov = inv(precisionMatrix)
+	U = simulator_MVN(mu, cov, n_individual)
+	np.save("./para_data/Individual", U)
+
+
+	#==== gene factor matrix
+	precisionMatrix = sampler_W(normalWishart[3], normalWishart[2])
+	precisionMatrix_scaled = precisionMatrix * normalWishart[1]
+	cov = inv(precisionMatrix_scaled)
+	mu = sampler_MVN(normalWishart[0], cov)
+	#
+	np.save("./para_data/Mu_gene", mu)
+	np.save("./para_data/Lambda_gene", precisionMatrix)
+	#
+	cov = inv(precisionMatrix)
+	V = simulator_MVN(mu, cov, n_gene)
+	np.save("./para_data/Gene", V)
+
+
+
+	print "dimension of simualted matrics:"
+	print "individual factor matrix:",
 	print len(u), len(u[0])
+	print "gene factor matrix:",
 	print len(v), len(v[0])
-
-	#DEBUG
-	print "matrix multiplication..."
 
 	#product = np.dot(u, v).T
 	#np.save("IxG", product)
+
 
 
 
@@ -278,10 +239,4 @@ if __name__ == '__main__':
 	fig.savefig("test.png")
 	'''
 
-
-
-	#DEBUG
-	print "End of program..."
-
-    
 
