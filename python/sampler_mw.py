@@ -28,9 +28,9 @@ import timeit
 ##=====================
 n_factor = 40
 n_individual = 1066
-n_gene = 585
+n_gene = 22473
 n_tissue = 30
-dimension = (n_individual, n_gene)
+dimension = (n_individual, n_gene, n_tissue)
 factor_name = {}
 dataset = np.zeros(shape=dimension) # individual x gene x tissue
 markerset = np.ones(shape=dimension) # mark the position where there are data
@@ -70,13 +70,14 @@ def get_individual_id(s):
 
 	return id
 
-def cal_product(i, j):
+
+def cal_product(i, j, k):
 	global n_factor
 	global fmlist
 
 	product = 0
 	for count in range(n_factor):
-		product += fmlist[0][i][count] * fmlist[1][j][count]
+		product += fmlist[0][i][count] * fmlist[1][j][count] * fmlist[2][k][count]
 	return product
 
 def factor_combination(dataset, fmlist, dim_depth, n_factor, fm_depth, prod, path):
@@ -100,11 +101,11 @@ def load_dataset():
 	global dimension
 	global n_factor
 	# load fmlist from simulated data
-	fmlist.append(np.load('data/real_individual_brain_c22_quantile.npy'))
-	fmlist.append(np.load('data/real_gene_c22_quantile.npy'))
+	fmlist.append(np.load('data/real_individual_brain_full_quantile.npy'))
+	fmlist.append(np.load('data/real_gene_full_quantile.npy'))
+	fmlist.append(np.load(''))  # for tissue
 	prod = np.ones(n_factor)
 	factor_combination(dataset, fmlist, dimension, n_factor, 0, prod, [])
-	print dataset
 
 ##==== sampling from Gaussian (with mean and std)
 def sampler_Normal(mu, sigma):
@@ -192,26 +193,28 @@ def sampler_factor(factor_id):
 		#print cur_dimension
 
 		precision_matrix = prior[factor_id][1]
-		ids = [0,1]
+		ids = [0,1,2]
 		ids.remove(factor_id)
 		dimension1 = dimension[ids[0]]
-		#dimension2 = dimension[ids[1]]
+		dimension2 = dimension[ids[1]]
 
 		#prod = np.ones(n_factor)
 		#sampler_factor_helper(dataset, markerset, fmlist, dimension, n_factor, prod, [], factor_id, precision_matrix)
 
 		Q = []
 		for j in range(dimension1):
-			hash_temp = {factor_id: i, ids[0]: j}
-			index1 = hash_temp[0]
-			index2 = hash_temp[1]
-			if markerset[(index1, index2)] == 0:
-				continue
-			#array = np.multiply(fmlist[ids[0]][j], fmlist[ids[1]][k])
-			#precision_matrix = np.add(precision_matrix, alpha*np.dot(np.array([fmlist[ids[0]][j]]).T, np.array([fmlist[ids[0]][j]])))
+			for k in range(dimension2):
+				hash_temp = {factor_id: i, ids[0]: j, ids[1]: k}
+				index1 = hash_temp[0]
+				index2 = hash_temp[1]
+				index3 = hash_temp[2]
+				if markerset[(index1, index2, index3)] == 0:
+					continue
+				#array = np.multiply(fmlist[ids[0]][j], fmlist[ids[1]][k])
+				#precision_matrix = np.add(precision_matrix, alpha*np.dot(np.array([fmlist[ids[0]][j]]).T, np.array([fmlist[ids[0]][j]])))
 
-			#vt_vector = np.multiply(v[i], t[j])
-			Q.append(fmlist[ids[0]][j])
+				#vt_vector = np.multiply(v[i], t[j])
+				Q.append(fmlist[ids[0]][j])
 
 		Q = np.array(Q)
 		precision_matrix = np.add(precision_matrix, np.multiply(alpha, np.dot(Q.T, Q)))
@@ -220,14 +223,16 @@ def sampler_factor(factor_id):
 
 
 		for j in range(dimension1):
-			hash_temp = {factor_id: i, ids[0]: j}
-			index1 = hash_temp[0]
-			index2 = hash_temp[1]
-			if markerset[index1][index2] == 0:
-				continue
+			for k in range(dimension2):
+				hash_temp = {factor_id: i, ids[0]: j, ids[1]: k}
+				index1 = hash_temp[0]
+				index2 = hash_temp[1]
+				index3 = hash_temp[2]
+				if markerset[(index1, index2, index3)] == 0:
+					continue
 
-			#array = np.multiply(fmlist[ids[0]][j], fmlist[ids[1]][k])
-			mean = np.add(alpha * dataset[(index1, index2)] * fmlist[ids[0]][j], mean)
+				#array = np.multiply(fmlist[ids[0]][j], fmlist[ids[1]][k])
+				mean = np.add(alpha * dataset[(index1, index2, index3)] * fmlist[ids[0]][j], mean)
 
 		mean = np.dot(mean, cov)
 
@@ -350,13 +355,14 @@ def sampler_precision():
 
 	for i in range(n_individual):
 		for j in range(n_gene):
-			if markerset[i][j] == 0:
-				continue
-			#
-			R_real = dataset[i][j]
-			R_exp = cal_product(i, j)
-			s += math.pow(R_real - R_exp, 2)
-			n += 1
+			for k in range(n_tissue):
+				if markerset[(i,j,k)] == 0:
+					continue
+				#
+				R_real = dataset[(i,j,k)]
+				R_exp = cal_product(i, j, k)
+				s += math.pow(R_real - R_exp, 2)
+				n += 1
 
 	para1_new = para1_old + 0.5 * n/2
 	para2_new = para2_old + 0.5 * s/2
@@ -448,13 +454,14 @@ def loglike_joint():
 	#==== observation likelihood
 	for i in range(n_individual):
 		for j in range(n_gene):
-			if markerset[i][j] == 0:
-				continue
+			for k in range(n_tissue):
+				if markerset[(i,j,k)] == 0:
+					continue
 
-			obs = dataset[i][j]
-			mean = cal_product(i, j)
-			var = 1.0 / alpha
-			like_log += loglike_Gaussian(obs, mean, var)
+				obs = dataset[(i,j,k)]
+				mean = cal_product(i, j, k)
+				var = 1.0 / alpha
+				like_log += loglike_Gaussian(obs, mean, var)
 	print "gaussian: " + str(like_log)
 
 	#print "LL is ",like_log
@@ -602,7 +609,7 @@ if __name__ == '__main__':
 	for i in range(ITER):
 		print "current iteration#",
 		print i+1
-		for j in range(2):
+		for j in range(3):
 			print "sampling factor#",
 			print j+1
 			#print "..."
@@ -614,8 +621,8 @@ if __name__ == '__main__':
 		print like_log
 
 		# log the factor/loading matrix
-		np.save("result/ind_loading_brain_c22_quantile", fmlist[0])
-		np.save("result/gene_loading_brain_c22_quantile", fmlist[1])
+		np.save("result/ind_loading_brain_full_quantile", fmlist[0])
+		np.save("result/gene_loading_brain_full_quantile", fmlist[1])
 
 		ll_result.append(like_log)
 
@@ -624,7 +631,7 @@ if __name__ == '__main__':
 	print "Time elapsed for sampling is ",
 	print elapsed
 
-	fo = open("result/quantile_pca_brain_c22.txt","w+")
+	fo = open("result/quantile_pca_brain_full.txt","w+")
 	for ele in ll_result:
 		fo.write(str(ele)+"\n")
 
