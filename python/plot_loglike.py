@@ -3,7 +3,8 @@ import matplotlib.pyplot as plt
 if __name__=="__main__":
 	arr = []
 	#with open("result/simu_loglike_20.txt", "r+") as f:
-	with open("result/simu_loglike_100.txt", "r+") as f:
+	#with open("result/simu_loglike_100.txt", "r+") as f:
+	with open("result/simu_loglike_400.txt", "r+") as f:
 		i = 0
 		for line in f:
 			i += 1
