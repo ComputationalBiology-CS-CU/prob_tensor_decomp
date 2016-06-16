@@ -265,7 +265,7 @@ def sampler_factor(factor_id):
 					continue
 
 				#array = np.multiply(fmlist[ids[0]][j], fmlist[ids[1]][k])
-				mean = np.add(alpha * dataset[(index1, index2, index3)] * fmlist[ids[0]][j] * fmlist[ids[1]][k], mean)
+				mean = np.add(alpha * dataset[(index1, index2, index3)] * np.multiply(fmlist[ids[0]][j], fmlist[ids[1]][k]), mean)
 
 		mean = np.dot(mean, cov)
 
