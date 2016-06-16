@@ -4,9 +4,11 @@ This folder contains all the scripts developed by Shuo, Chuqiao, Mengqing (timel
 
 Currently used scripts:
 
-1. sampler\_mw.py
-2. sampler\_mw\_mf.py
-3. plot\_loglike.py
-4. plot\_pca.py
-
+1. sampler\_mw.py (tensor decomposition Gibbs sampler)
+2. sampler\_mw\_mf.py (matrix decomposition Gibbs sampler)
+3. FA.py
+4. PCA.py
+5. plot\_pca.py
+6. plot\_loglike.py
+7. plot\_fm\_heatmap.py
 
