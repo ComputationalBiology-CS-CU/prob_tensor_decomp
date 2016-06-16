@@ -10,7 +10,6 @@
 ##	5. ...
 
 
-
 ##===============
 ##==== libraries
 ##===============
@@ -23,12 +22,13 @@ from copy import *
 import cProfile
 import timeit
 
+
 ##=====================
 ##==== global variables
 ##=====================
 n_factor = 40
-n_individual = 1066
-n_gene = 585
+n_individual = 100	#NOTE mw: 1066
+n_gene = 2000		#NOTE mw: 585
 n_tissue = 30
 dimension = (n_individual, n_gene)
 factor_name = {}
@@ -96,15 +96,46 @@ def factor_combination(dataset, fmlist, dim_depth, n_factor, fm_depth, prod, pat
 ##==== this function will load
 def load_dataset():
 	global dataset
+	global markerset
 	global fmlist
-	global dimension
-	global n_factor
-	# load fmlist from simulated data
-	fmlist.append(np.load('data/real_individual_brain_c22_quantile.npy'))
-	fmlist.append(np.load('data/real_gene_c22_quantile.npy'))
-	prod = np.ones(n_factor)
-	factor_combination(dataset, fmlist, dimension, n_factor, 0, prod, [])
-	print dataset
+	global prior1
+	global prior2
+	global prior3
+	global prior
+
+	#global dimension
+	#global n_factor
+
+	#== load tensor (matrix) data						# TODO: to load incomplete tensor, and also the markerset
+	dataset = np.load("data/Tensor.npy")
+	print dataset.shape
+
+	#== load fmlist from simulated data
+	#fmlist.append(np.load('data/real_individual_brain_c22_quantile.npy'))		NOTE mw
+	#fmlist.append(np.load('data/real_gene_c22_quantile.npy'))			NOTE mw
+	fmlist.append(np.load('data/Individual.npy'))
+	fmlist.append(np.load('data/Gene.npy'))
+	## load data as above, instead of the following
+	#prod = np.ones(n_factor)
+	#factor_combination(dataset, fmlist, dimension, n_factor, 0, prod, [])
+
+	#== load mean and cov (sample) for MVN prior; we use sample mean and cov as the init for this prior
+	prior1 = []
+	prior2 = []
+	prior3 = []
+	prior = []
+	prior.append(prior1)
+	prior.append(prior2)
+	prior.append(prior3)
+	for n in range(2):
+		mean = np.array(np.mean(fmlist[n], axis = 0))
+		cov = np.cov(fmlist[n], rowvar=0)
+		precision = np.array(inv(cov))
+		prior[n].append(mean)
+		prior[n].append(precision)
+
+
+
 
 ##==== sampling from Gaussian (with mean and std)
 def sampler_Normal(mu, sigma):
@@ -113,22 +144,11 @@ def sampler_Normal(mu, sigma):
 
 ##==== sampling from Multivariate Gaussian
 def sampler_MVN(mean, cov):
-	'''
-	array = [0] * len(mean)
-	array = np.array(array)
-
-	x = np.random.multivariate_normal(mean, cov, 1)
-	for i in range(len(x[0])):
-		y = x[0][i]
-		array[i] = y
-	return array
-	'''
 	x = np.random.multivariate_normal(mean, cov, 1)
 	return x[0]
 
 ##==== sampling from Wishart
 def sampler_W(df, scale):
-	#
 	sample = wishart.rvs(df, scale, size=1, random_state=None)
 	return sample
 
@@ -489,94 +509,45 @@ def loglike_joint():
 	return like_log
 
 
+
+
+
 if __name__ == '__main__':
 
-	# DEBUG
+
 	print "enter program..."
-
-
-	# DEBUG
-	print "now start preparing the data..."
-
 
 
 	##==================================
 	##==== loading and preparing dataset
 	##==================================
-
-	# prepare the "dataset" and "markerset"
-	# data_prepare()
+	print "now start preparing the data..."
+	#-> prepare the "dataset" and "markerset"
+	#-> prepare the initialized factor matrices (PCA), and their mean/cov as the MVN prior
 	load_dataset()
-
-	# DEBUG
 	print "finish data preparation..."
 
-
-	# DEBUG
-	print "now initializing all the variables..."
 
 
 	##================================
 	##==== initialize global variables
 	##================================
-	#n_factor = 40			# TODO: this is tunable, and the number 400 comes from results of other more complex methods
-
+	print "now initializing all the variables..."
 	#== set the hyper-prior
 	hyper_prior1 = []
 	hyper_prior2 = []
 	hyper_prior3 = []
 	hyper_prior = []
-
 	hyper_prior.append(hyper_prior1)
 	hyper_prior.append(hyper_prior2)
 	hyper_prior.append(hyper_prior3)
-
-
-
 	for n in range(3):
 		# 4 parts here: scale matrix, df, mean, scaler of the precision matrix
-
-		scale = np.identity(n_factor)
 		hyper_prior[n].append(np.load("data/precision.npy"))    # lambda
 		hyper_prior[n].append(np.int(np.load("data/v.npy")))		# TODO: tunable   v_0
 		hyper_prior[n].append(np.load("data/mu.npy"))		# TODO: tunable	 mu_0
 		hyper_prior[n].append(np.int(np.load("data/kappa.npy")))		# TODO: tunable  kappa_0
 
-
-	'''
-	mu_0 = np.zeros(n_factor)
-	precision_0 = np.identity(n_factor)
-
-	# test some random parameters
-	for n in range(3):
-		# 4 parts here: scale matrix, df, mean, scaler of the precision matrix
-
-		scale = np.identity(n_factor)
-		hyper_prior[n].append(precision_0)    # lambda precision
-		hyper_prior[n].append(60)		# TODO: tunable   v_0
-		hyper_prior[n].append(mu_0)		# TODO: tunable	 mu_0
-		hyper_prior[n].append(3)		# TODO: tunable  kappa_0
-	'''
-
-	#== the prior of MVN (mean and precision matrix)
-	prior1 = []
-	prior2 = []
-	prior3 = []
-	prior = []
-	prior.append(prior1)
-	prior.append(prior2)
-	prior.append(prior3)
-	for n in range(3):
-		mean = np.array([0] * n_factor)
-		precision = np.identity(n_factor)
-		prior[n].append(deepcopy(mean))
-		prior[n].append(deepcopy(precision))
-
-
-	#== the MVN drawing (mean 0, cov 1) for factorized matrices
-	mean = np.array([0] * n_factor)
-
-	cov = np.identity(n_factor)
 
 	#== set the prior for precision (Gamma)
 	alpha_prior = [1, 0.5]		# shape parameter and rate parameter, TODO: tunable
@@ -587,17 +558,17 @@ if __name__ == '__main__':
 
 
 
-	# DEBUG
 	print "finish variables initialization..."
+
+
 
 
 	##==============================
 	##==== sampler calling iteration
 	##==============================
-
 	start_time = timeit.default_timer()
 
-	ITER = 15
+	ITER = 30
 	ll_result = []
 	for i in range(ITER):
 		print "current iteration#",
@@ -610,22 +581,25 @@ if __name__ == '__main__':
 		#print "sample precision..."
 		sampler_precision()
 		like_log = loglike_joint()	# monitor the log joint likelihood
-		#print "sampling done. the log joint likelihood is",
+		print "sampling done. the log joint likelihood is",
 		print like_log
 
 		# log the factor/loading matrix
-		np.save("result/ind_loading_brain_c22_quantile", fmlist[0])
-		np.save("result/gene_loading_brain_c22_quantile", fmlist[1])
+		#np.save("result/ind_loading_brain_c22_quantile", fmlist[0])		NOTE mw
+		#np.save("result/gene_loading_brain_c22_quantile", fmlist[1])		NOTE mw
+		np.save("result/simu_indiv", fmlist[0])
+		np.save("result/simu_gene", fmlist[1])
 
 		ll_result.append(like_log)
 
 	elapsed = timeit.default_timer() - start_time
-
 	print "Time elapsed for sampling is ",
 	print elapsed
 
-	fo = open("result/quantile_pca_brain_c22.txt","w+")
+	fo = open("result/simu_loglike.txt","w+")
 	for ele in ll_result:
 		fo.write(str(ele)+"\n")
-
 	fo.close()
+
+
+
