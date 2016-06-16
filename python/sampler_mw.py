@@ -248,7 +248,7 @@ def sampler_factor(factor_id):
 				#precision_matrix = np.add(precision_matrix, alpha*np.dot(np.array([fmlist[ids[0]][j]]).T, np.array([fmlist[ids[0]][j]])))
 
 				#vt_vector = np.multiply(v[i], t[j])
-				Q.append(fmlist[ids[0]][j])
+				Q.append(np.multiply(fmlist[ids[0]][j], fmlist[ids[1]][k]))
 
 		Q = np.array(Q)
 		precision_matrix = np.add(precision_matrix, np.multiply(alpha, np.dot(Q.T, Q)))
