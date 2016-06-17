@@ -76,7 +76,8 @@ def get_individual_id(s):
 
 	return id
 
-
+## re-write cal_product with numpy
+'''
 def cal_product(i, j, k):
 	global n_factor
 	global fmlist
@@ -85,6 +86,15 @@ def cal_product(i, j, k):
 	for count in range(n_factor):
 		product += fmlist[0][i][count] * fmlist[1][j][count] * fmlist[2][k][count]
 	return product
+'''
+def cal_product(i, j, k):
+	global n_factor
+	global fmlist
+
+	array = np.multiply(fmlist[0][i], fmlist[1][j])
+	product = np.inner(array, fmlist[2][k])
+	return product
+
 
 def factor_combination(dataset, fmlist, dim_depth, n_factor, fm_depth, prod, path):
 	if fm_depth==len(fmlist):
@@ -211,12 +221,15 @@ def sampler_factor(factor_id):
 	#   dimension 3: gene
 
 	cur_dimension = dimension[factor_id]
+	print "cur_dimension:"
+	print cur_dimension
 
 	# DEBUG
 	#print "we'll sample factor matrix first..."
 
 
 	#==== sample factor matrix
+	start = timeit.default_timer()
 	for i in range(cur_dimension):  # there are n factor array, that are independent with each other --> parallel
 
 
@@ -265,18 +278,19 @@ def sampler_factor(factor_id):
 					continue
 
 				#array = np.multiply(fmlist[ids[0]][j], fmlist[ids[1]][k])
-				mean = np.add(alpha * dataset[(index1, index2, index3)] * np.multiply(fmlist[ids[0]][j], fmlist[ids[1]][k]), mean)
+				mean = np.add(alpha * markerset[(index1, index2, index3)] * dataset[(index1, index2, index3)] * np.multiply(fmlist[ids[0]][j], fmlist[ids[1]][k]), mean)
 
 		mean = np.dot(mean, cov)
 
 		#== sampling
-
 		fmlist[factor_id][i] = sampler_MVN(mean, cov)
 
-	# DEBUG
-	#print "now we are sampling the prior..."
+	print "Time elapsed for sampling is ", timeit.default_timer() - start
+
+
 
 	#==== sample Gaussian-Wishart (Wishart first, then Gaussian) prior
+	start = timeit.default_timer()
 	#== sample Wishart first
 
 	# DEBUG
@@ -366,12 +380,16 @@ def sampler_factor(factor_id):
 	# sampling MVN
 	prior[factor_id][0] = sampler_MVN(mean, cov)
 
-	#return
+	
+	print "Time elapsed for sampling is ", timeit.default_timer() - start
+
+
 
 
 ##==== sampling precision
 def sampler_precision():
 	global alpha_prior
+	global dimension
 	global n_individual
 	global n_gene
 	global n_tissue
@@ -383,9 +401,13 @@ def sampler_precision():
 
 	para1_old = alpha_prior[0]
 	para2_old = alpha_prior[1]
+
+
+	## re-write the following with numpy, but with limited improvement (say, from 4.86396002769 secs down to 4.06863713264 secs)
+	'''
 	n = 0
 	s = 0
-
+	start = timeit.default_timer()
 	for i in range(n_tissue):
 		for j in range(n_individual):
 			for k in range(n_gene):
@@ -396,6 +418,32 @@ def sampler_precision():
 				R_exp = cal_product(i, j, k)
 				s += math.pow(R_real - R_exp, 2)
 				n += 1
+	print "old:"
+	print s
+	print n
+	print "Time elapsed:", timeit.default_timer() - start
+	'''
+
+	#start = timeit.default_timer()
+	##====
+	n = 0
+	s = 0
+	tensor_temp = np.zeros(dimension)
+	for i in range(n_tissue):
+		for j in range(n_individual):
+			for k in range(n_gene):
+				if markerset[(i,j,k)] == 0:
+					tensor_temp[(i,j,k)] = dataset[(i,j,k)]		# in order to make the log-likelihood as 0
+					continue
+				n += 1
+				tensor_temp[(i,j,k)] = cal_product(i, j, k)
+	s = np.sum(np.power(np.add(dataset, -tensor_temp), 2))
+	##====
+	#print "new:"
+	#print s
+	#print n
+	#print "Time elapsed:", timeit.default_timer() - start
+
 
 	para1_new = para1_old + 0.5 * n/2
 	para2_new = para2_old + 0.5 * s/2
@@ -477,10 +525,12 @@ def loglike_joint():
 	global hyper_prior  # hyper_prior[0, 1, 2]: 0: scale; 1: df; 2: mean; 3: scaler
 	global alpha
 	global alpha_prior  # 0: shape parameter; 1: rate parameter
+	global dimension
 
 	like_log = 0
 
 	#==== observation likelihood
+	var = 1.0 / alpha
 	for i in range(n_tissue):
 		for j in range(n_individual):
 			for k in range(n_gene):
@@ -489,32 +539,33 @@ def loglike_joint():
 
 				obs = dataset[(i,j,k)]
 				mean = cal_product(i, j, k)
-				var = 1.0 / alpha
 				like_log += loglike_Gaussian(obs, mean, var)
-	print "gaussian: " + str(like_log)
-
-	#print "LL is ",like_log
+	print "gaussian:",
+	print like_log
 
 	#==== factor matrix likelihood
 	a = 0
-	for i in range(n_tissue):
+	cur_dimension = dimension[0]
+	for i in range(cur_dimension):
 		a += loglike_MVN(fmlist[0][i], prior[0][0], prior[0][1])
 	like_log += a
 	print "mvn_tissue:",
 	print a
 
 	a = 0
-	for j in range(n_individual):
+	cur_dimension = dimension[1]
+	for j in range(cur_dimension):
 		a += loglike_MVN(fmlist[1][j], prior[1][0], prior[1][1])
 	like_log += a
 	print "mvn_individual:",
 	print a
 
 	a = 0
-	for k in range(n_gene):
+	cur_dimension = dimension[2]
+	for k in range(cur_dimension):
 		a += loglike_MVN(fmlist[2][k], prior[2][0], prior[2][1])
 	like_log += a
-	print "mvn_gene: ",
+	print "mvn_gene:",
 	print a
 
 	#==== factor prior likelihood
@@ -522,12 +573,14 @@ def loglike_joint():
 	for i in range(3):
 		a += loglike_GW(prior[i][0], prior[i][1], hyper_prior[i][0], hyper_prior[i][1], hyper_prior[i][2], hyper_prior[i][3])
 	like_log += a
-	print "gw: " + str(a)
+	print "gw:",
+	print a
 
 	#==== precision/variance likelihood
 	a = loglike_Gamma(alpha, alpha_prior[0], alpha_prior[1])
 	like_log += a
-	print "gamma: " + str(a)
+	print "gamma:",
+	print a
 
 
 	return like_log
@@ -590,21 +643,35 @@ if __name__ == '__main__':
 	##==============================
 	start_time = timeit.default_timer()
 
-	ITER = 400
+	ITER = 20
 	ll_result = []
 	for i in range(ITER):
-		print "current iteration#",
+		print "@@@@current iteration#",
 		print i+1
+
+		#==== factor matrix (and prior)
+		print "@@sample factors..."
 		for j in range(3):
+			start = timeit.default_timer()
 			print "sampling factor#",
 			print j+1
-			#print "..."
 			sampler_factor(j)
-		#print "sample precision..."
+			print "Time elapsed for sampling is ", timeit.default_timer() - start
+
+		#==== precision
+		print "@@sample precision..."
+		start = timeit.default_timer()
 		sampler_precision()
+		print "Time elapsed for sampling is ", timeit.default_timer() - start
+
+		#==== loglike
+		print "@@calculate logolike..."
+		start = timeit.default_timer()
 		like_log = loglike_joint()  # monitor the log joint likelihood
 		print "sampling done. the log joint likelihood is",
 		print like_log
+		print "Time elapsed for cal loglike is ", timeit.default_timer() - start
+
 
 		# log the factor/loading matrix
 		#np.save("result/ind_loading_brain_full_quantile", fmlist[0])			NOTE mw
