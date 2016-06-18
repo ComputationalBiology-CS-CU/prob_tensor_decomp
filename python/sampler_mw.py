@@ -110,7 +110,7 @@ def factor_combination(dataset, fmlist, dim_depth, n_factor, fm_depth, prod, pat
 
 
 
-##==== this function will load
+##==== this function will load simu/real data
 def load_dataset():
 	global dataset
 	global markerset
@@ -155,7 +155,80 @@ def load_dataset():
 		precision = np.array(inv(cov))
 		prior[n].append(mean)
 		prior[n].append(precision)
-		
+
+
+def load_dataset_real():
+	global fmlist
+	global prior1
+	global prior2
+	global prior3
+	global prior
+
+	global n_factor
+	global n_tissue
+	global n_individual
+	global n_gene
+	global dimension
+
+	global dataset
+	global markerset
+
+	#== load fmlist from real data init
+	factor_tissue = np.load('data/Tissue.npy')
+	fmlist.append(factor_tissue)
+	factor_indiv = np.load('data/Individual.npy')
+	fmlist.append(factor_indiv)
+	factor_gene = np.load('data/Gene.npy')
+	fmlist.append(factor_gene)
+	#== global variable init
+	n_factor = len(factor_tissue[0])
+	n_tissue = len(factor_tissue)
+	n_individual = len(factor_indiv)
+	n_gene = len(factor_gene)
+	dimension = (n_tissue, n_individual, n_gene)
+
+	#== calculate mean and cov (sample) for MVN prior; we use sample mean and cov as the init for this prior
+	prior1 = []
+	prior2 = []
+	prior3 = []
+	prior = []
+	prior.append(prior1)
+	prior.append(prior2)
+	prior.append(prior3)
+	for n in range(3):
+		mean = np.array(np.mean(fmlist[n], axis = 0))
+		cov = np.cov(fmlist[n], rowvar=0)
+		precision = np.array(inv(cov))
+		prior[n].append(mean)
+		prior[n].append(precision)
+
+	#== load tensor data (and markerset)
+	dataset = np.zeros(shape=dimension)
+	markerset = np.zeros(shape=dimension)
+	list_tissue = np.load("data/Tissue_list.npy")
+	list_indiv = np.load("data/Individual_list.npy")
+	rep_indiv = {}
+	for i in range(len(list_indiv)):
+		individual = list_indiv[i]
+		rep_indiv[individual] = i
+	for i in range(len(list_tissue)):
+		tissue = list_tissue[i]
+		list_sample = np.load("data/Tensor_tissue_" + str(i) + "_list.npy")
+		data = np.load("data/Tensor_tissue_" + str(i) + ".npy")
+		for j in range(len(list_sample)):
+			sample = list_sample[j]
+			individual = get_individual_id(sample)
+			index = rep_indiv[individual]
+			dataset[i][index] = data[j]
+			markerset[i][index] = np.ones(n_gene)
+	dataset = np.array(dataset)
+	markerset = np.array(markerset)
+	print "dataset and markerset shape:",
+	print dataset.shape,
+	print markerset.shape
+
+
+
 
 
 
@@ -601,6 +674,7 @@ if __name__ == '__main__':
 	#-> prepare the "dataset" and "markerset"		TODO: markerset is not properly loaded
 	#-> prepare the initialized factor matrices (PCA), and their mean/cov as the MVN prior
 	load_dataset()
+	#load_dataset_real()
 	print "finish data preparation..."
 
 
@@ -691,6 +765,7 @@ if __name__ == '__main__':
 	for ele in ll_result:
 		fo.write(str(ele)+"\n")
 	fo.close()
+
 
 
 
