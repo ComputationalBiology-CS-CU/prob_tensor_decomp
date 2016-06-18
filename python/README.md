@@ -30,6 +30,6 @@ and we already have the following hyper prior for the training program:
 3. precision.npy
 4. v.npy
 
-The processing script is named as "pre\_process.py" (extracting the samples and preparing the input) and "pre\_init.py" (init the factor matrices).
+The processing script is named as "pre\_process.py" (extracting the samples, rm null genes, normalization and preparing the input) and "pre\_init.py" (init the factor matrices).
 
 
