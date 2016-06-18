@@ -643,7 +643,7 @@ if __name__ == '__main__':
 	##==============================
 	start_time = timeit.default_timer()
 
-	ITER = 20
+	ITER = 400
 	ll_result = []
 	for i in range(ITER):
 		print "@@@@current iteration#",
