@@ -57,6 +57,12 @@ alpha = 0       # the precision of the final observation
 alpha_prior = []    # 0: xxx; 1: xxx
 
 
+##==== NOTE: for re-using variables and saving computation
+tensor_mean = []
+tensor_null_n = 0
+
+
+
 ##=====================
 ##==== subroutines
 ##=====================
@@ -110,7 +116,7 @@ def factor_combination(dataset, fmlist, dim_depth, n_factor, fm_depth, prod, pat
 
 
 
-##==== this function will load simu/real data
+##==== this function will load simu data
 def load_dataset():
 	global dataset
 	global markerset
@@ -156,7 +162,7 @@ def load_dataset():
 		prior[n].append(mean)
 		prior[n].append(precision)
 
-
+##==== this function will load real data
 def load_dataset_real():
 	global fmlist
 	global prior1
@@ -469,6 +475,8 @@ def sampler_precision():
 	global dataset
 	global markerset
 	global alpha
+	global tensor_mean		# NOTE: for re-using
+	global tensor_null_n		# NOTE: for re-using
 
 	print "old alpha" + str(alpha)
 
@@ -476,11 +484,21 @@ def sampler_precision():
 	para2_old = alpha_prior[1]
 
 
-	## re-write the following with numpy, but with limited improvement (say, from 4.86396002769 secs down to 4.06863713264 secs)
 	'''
 	n = 0
 	s = 0
+
 	start = timeit.default_timer()
+	## new testing routine for tensor multi:
+	tensor_mean = []
+	for i in range(n_tissue):
+		tensor_mean.append(np.zeros((n_individual, n_gene)))
+		factor_indiv = fmlist[1].T
+		factor_gene = fmlist[2].T
+		for k in range(n_factor):
+			factor = fmlist[0][i][k]
+			tensor_mean[-1] += factor * np.outer(factor_indiv[k], factor_gene[k])
+	tensor_mean = np.array(tensor_mean)
 	for i in range(n_tissue):
 		for j in range(n_individual):
 			for k in range(n_gene):
@@ -488,34 +506,45 @@ def sampler_precision():
 					continue
 				#
 				R_real = dataset[(i,j,k)]
-				R_exp = cal_product(i, j, k)
+				#R_exp = cal_product(i, j, k)
+				R_exp = tensor_mean[(i,j,k)]
 				s += math.pow(R_real - R_exp, 2)
 				n += 1
-	print "old:"
+	print "n, s:"
 	print s
 	print n
 	print "Time elapsed:", timeit.default_timer() - start
 	'''
-
-	#start = timeit.default_timer()
+	## re-write the following with numpy, but with limited improvement (say, from 4.86396002769 secs down to 4.06863713264 secs)
+	start = timeit.default_timer()
 	##====
 	n = 0
 	s = 0
-	tensor_temp = np.zeros(dimension)
+
+	tensor_mean = []
+	for i in range(n_tissue):
+		tensor_mean.append(np.zeros((n_individual, n_gene)))
+		factor_indiv = fmlist[1].T
+		factor_gene = fmlist[2].T
+		for k in range(n_factor):
+			factor = fmlist[0][i][k]
+			tensor_mean[-1] += factor * np.outer(factor_indiv[k], factor_gene[k])
+	tensor_mean = np.array(tensor_mean)
 	for i in range(n_tissue):
 		for j in range(n_individual):
 			for k in range(n_gene):
 				if markerset[(i,j,k)] == 0:
-					tensor_temp[(i,j,k)] = dataset[(i,j,k)]		# in order to make the log-likelihood as 0
+					tensor_mean[(i,j,k)] = dataset[(i,j,k)]		# in order to make the log-likelihood as 0
 					continue
 				n += 1
-				tensor_temp[(i,j,k)] = cal_product(i, j, k)
-	s = np.sum(np.power(np.add(dataset, -tensor_temp), 2))
+	s = np.sum(np.power(np.add(dataset, -tensor_mean), 2))
+	tensor_null_n = n
 	##====
-	#print "new:"
-	#print s
-	#print n
-	#print "Time elapsed:", timeit.default_timer() - start
+	print "s, n:"
+	print s
+	print n
+	print "Time elapsed:", timeit.default_timer() - start
+
 
 
 	para1_new = para1_old + 0.5 * n/2
@@ -589,6 +618,7 @@ def loglike_Gamma(obs, para1, para2):
 	like_log += (- para2 * obs)
 	return like_log
 
+
 ##==== calculate the joint log likelihood
 def loglike_joint():
 	global n_individual, n_gene, n_tissue
@@ -599,10 +629,16 @@ def loglike_joint():
 	global alpha
 	global alpha_prior  # 0: shape parameter; 1: rate parameter
 	global dimension
+	## NOTE: I will re-use the "tensor_mean" array from global for the computing here, this depends on the current sampling order!!!
+	global tensor_mean
+	global tensor_null_n
+
 
 	like_log = 0
 
 	#==== observation likelihood
+	start = timeit.default_timer()
+	'''
 	var = 1.0 / alpha
 	for i in range(n_tissue):
 		for j in range(n_individual):
@@ -613,8 +649,44 @@ def loglike_joint():
 				obs = dataset[(i,j,k)]
 				mean = cal_product(i, j, k)
 				like_log += loglike_Gaussian(obs, mean, var)
+	'''
+	## new testing routine for tensor multi:
+	'''
+	tensor_mean = []
+	for i in range(n_tissue):
+		tensor_mean.append(np.zeros((n_individual, n_gene)))
+		factor_indiv = fmlist[1].T
+		factor_gene = fmlist[2].T
+		for k in range(n_factor):
+			factor = fmlist[0][i][k]
+			tensor_mean[-1] += factor * np.outer(factor_indiv[k], factor_gene[k])
+	tensor_mean = np.array(tensor_mean)
+	'''
+	'''
+	##========
+	var = 1.0 / alpha
+	for i in range(n_tissue):
+		for j in range(n_individual):
+			for k in range(n_gene):
+				if markerset[(i,j,k)] == 0:
+					continue
+				obs = dataset[(i,j,k)]
+				mean = tensor_mean[(i,j,k)]
+				like_log += loglike_Gaussian(obs, mean, var)
 	print "gaussian:",
 	print like_log
+	print "Time elapsed for cal obs loglike is ", timeit.default_timer() - start
+	##========
+	'''
+	## new routine with numpy
+	var = 1.0 / alpha
+	like_log += (- alpha / 2) * np.sum(np.power(np.add(dataset, -tensor_mean), 2)) + tensor_null_n * (- math.log( math.sqrt(var) ))
+	print "gaussian:",
+	print like_log
+	print "Time elapsed for cal obs loglike is ", timeit.default_timer() - start
+
+
+
 
 	#==== factor matrix likelihood
 	a = 0
