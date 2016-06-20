@@ -687,7 +687,6 @@ def loglike_joint():
 
 
 
-
 	#==== factor matrix likelihood
 	a = 0
 	cur_dimension = dimension[0]

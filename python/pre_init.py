@@ -1,4 +1,9 @@
 ## initialize the tensor factor matrices
+## targets:
+##	Tissue.npy
+##	Individual.npy
+##	Gene.npy
+##
 
 
 ##===============
@@ -47,6 +52,8 @@ def get_individual_id(s):
 if __name__ == "__main__":
 
 
+	######## SESSION I ########
+	"""
 	##=============
 	##==== loading
 	##=============
@@ -106,7 +113,7 @@ if __name__ == "__main__":
 	np.save("./data_processed/pca_variance", variance)
 	print "saving the .npy data done..."
 
-
+	np.save("./data_processed/Gene", Y2)
 
 
 
@@ -150,7 +157,57 @@ if __name__ == "__main__":
 	print "save done..."
 
 
+	##== need to save the results in tsv file (including Nan), in order to load in R
+	for k in range(n_factor):
+		m = np.load("./data_inter/f" + str(k) + "_tissue_indiv.npy")
+		file = open("./data_inter/f" + str(k) + "_tissue_indiv.txt", 'w')
+		for i in range(len(m)):
+			for j in range(len(m[i])):
+				value = m[i][j]
+				file.write(str(value))
+				if j != len(m[i])-1:
+					file.write('\t')
+			file.write('\n')
+		file.close()
+	"""
 
 
+
+	######## SESSION II ########
+	factor_tissue = []
+	factor_indiv = []
+	for k in range(n_factor):
+		#
+		factor_tissue.append([])
+		file = open("./data_inter/f" + str(k) + "_tissue.txt", 'r')
+		while 1:
+			line = (file.readline()).strip()
+			if not line:
+				break
+			factor_tissue[-1].append(float(line))
+		file.close()
+
+		#
+		factor_indiv.append([])
+		file = open("./data_inter/f" + str(k) + "_indiv.txt", 'r')
+		while 1:
+			line = (file.readline()).strip()
+			if not line:
+				break
+			factor_indiv[-1].append(float(line))
+		file.close()
+
+	factor_tissue = (np.array(factor_tissue)).T
+	factor_indiv = (np.array(factor_indiv)).T
+
+	print "factor tissue:",
+	print factor_tissue.shape
+
+	print "factor indiv:",
+	print factor_indiv.shape
+
+
+	np.save("./data_processed/Tissue", factor_tissue)
+	np.save("./data_processed/Individual", factor_indiv)
 
 

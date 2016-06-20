@@ -33,3 +33,6 @@ and we already have the following hyper prior for the training program:
 The processing script is named as "pre\_process.py" (extracting the samples, rm null genes, normalization and preparing the input) and "pre\_init.py" (init the factor matrices).
 
 
+In terms of initializing the Individual factor matrix and the Tissue factor matrix, we will do the PCA on Sample x Gene matrix, and then re-construct the Tissue x Individual x Factor tensor from the Sample factor matrix. For this small tensor, for each factor (assuming they are independent in initialization), we will do incomplete PCA with R script "pre\_init.R". We need to download "fX\_tissue\_indiv.txt" data from cluster "./data\_inter/fX\_tissue\_indiv.txt" to local "./result/temp/", and the script will generate "fX\_tissue.txt" and "fX\_indiv.txt" in the same location. Then we can upload these two source data into cluster "./data\_inter/", and then run the second session of "pre\_init.py". By now we should have done all the initialization.
+
+
