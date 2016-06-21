@@ -1,8 +1,8 @@
 ## initialize the tensor factor matrices
 ## targets:
-##	Tissue.npy
-##	Individual.npy
-##	Gene.npy
+##	Tissue.npy		, in-directly
+##	Individual.npy		, in-directly
+##	Gene.npy		, directly
 ##
 
 
@@ -20,7 +20,7 @@ import timeit
 from sklearn.decomposition import PCA
 
 
-n_factor = 40
+n_factor = 400		# TODO: to decide
 n_tissue = 0
 n_individual = 0
 n_gene = 0
@@ -61,7 +61,7 @@ if __name__ == "__main__":
 	list_individual = np.load("./data_processed/Individual_list.npy")
 	list_gene = np.load("./data_processed/Gene_list.npy")
 	list_sample = np.load("./data_raw/list_sample.npy")
-	Data = np.load("./data_processed/Data.npy")
+	Data = np.load("./data_raw/Data.npy")
 	## sample_tissue_rep
 	file = open("./data_raw/phs000424.v6.pht002743.v6.p1.c1.GTEx_Sample_Attributes.GRU.txt_sample_tissue_type", 'r')
 	sample_tissue_rep = {}
@@ -79,11 +79,62 @@ if __name__ == "__main__":
 		tissue = line[2]
 		sample_tissue_rep[sample] = tissue
 	file.close()
+
+
+
+	## TODO: we probably need to subtract the Chr22 genes for convergence testing purpose
+	''' will do the following in "pre_process.py"
+	##================
+	print "now we are picking up a subset of all the genes..."
+	## to update the following;
+	##list_gene = np.load("./data_processed/Gene_list.npy")
+	##Data = np.load("./data_raw/Data.npy")
+	file = open("./data_raw/gene_tss.txt", 'r')
+	rep_gene_chr = {}
+	while 1:
+		line = (file.readline()).strip()
+		if not line:
+			break
+
+		line = line.split('\t')
+		gene = line[0]
+		chr = line[1]
+		rep_gene_chr[gene] = chr
+	file.close()
+
+	list_gene_new = []
+	rep_index_gene = {}
+	for i in range(len(list_gene)):
+		gene = list_gene[i]
+		if rep_gene_chr[gene] == '22':
+			list_gene_new.append(gene)
+			rep_index_gene[i] = 1
+	list_gene = np.array(list_gene_new)
+	print "length of new gene list:",
+	print len(list_gene)
+	np.save("./data_processed/Gene_list.npy", list_gene)
+	Data_new = []
+	for i in range(len(Data)):
+		Data_new.append([])
+		for j in range(len(Data[i])):
+			if j in rep_index_gene:
+				value = Data[i][j]
+				Data_new[-1].append(value)
+	Data = np.array(Data_new)
+	print "shape of new Data matrix (Sample x Gene):",
+	print Data.shape
+	##================
+	'''
+
+
 	n_tissue = len(list_tissue)
 	n_individual = len(list_individual)
 	n_gene = len(list_gene)
+	dimension = (n_tissue, n_individual, n_gene)
 
 	print dimension
+
+
 
 
 
@@ -98,6 +149,11 @@ if __name__ == "__main__":
 	variance = pca.explained_variance_ratio_
 
 	print variance
+	print "and the cumulative variance are:"
+	for i in range(len(variance)):
+		print i,
+		print np.sum(variance[:i+1]),
+	print ""
 
 	# DEBUG
 	print "sample factor matrix:",
@@ -173,6 +229,11 @@ if __name__ == "__main__":
 
 
 
+
+
+
+
+
 	######## SESSION II ########
 	factor_tissue = []
 	factor_indiv = []
@@ -209,5 +270,10 @@ if __name__ == "__main__":
 
 	np.save("./data_processed/Tissue", factor_tissue)
 	np.save("./data_processed/Individual", factor_indiv)
+
+
+
+
+
 
 

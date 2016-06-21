@@ -336,6 +336,7 @@ def sampler_factor(factor_id):
 				index3 = hash_temp[2]
 				if markerset[(index1, index2, index3)] == 0:
 					continue
+
 				#array = np.multiply(fmlist[ids[0]][j], fmlist[ids[1]][k])
 				#precision_matrix = np.add(precision_matrix, alpha*np.dot(np.array([fmlist[ids[0]][j]]).T, np.array([fmlist[ids[0]][j]])))
 
@@ -357,7 +358,7 @@ def sampler_factor(factor_id):
 					continue
 
 				#array = np.multiply(fmlist[ids[0]][j], fmlist[ids[1]][k])
-				mean = np.add(alpha * markerset[(index1, index2, index3)] * dataset[(index1, index2, index3)] * np.multiply(fmlist[ids[0]][j], fmlist[ids[1]][k]), mean)
+				mean = np.add(alpha * dataset[(index1, index2, index3)] * np.multiply(fmlist[ids[0]][j], fmlist[ids[1]][k]), mean)
 
 		mean = np.dot(mean, cov)
 
@@ -400,6 +401,9 @@ def sampler_factor(factor_id):
 	print factor_var
 	'''
 	# mw
+	# TODO: to opt the following
+	##====
+	'''
 	factor_mean = [0] * n_factor
 	for i in range(dimension[factor_id]):
 		for j in range(n_factor):
@@ -412,8 +416,18 @@ def sampler_factor(factor_id):
 	mean_matrix = np.repeat(factor_mean_t, dimension[factor_id], axis=1)
 
 	factor_var = np.dot(fmlist[factor_id].T - mean_matrix, (fmlist[factor_id].T - mean_matrix).T)
+	'''
+	##====
+	## NOTE: the new routine is as followed:
+	factor_mean = np.mean(fmlist[factor_id], axis=0)
+	#factor_var = np.cov(fmlist[factor_id], rowvar=0)	# NOTE: seems not work
+	factor_mean_t = np.array([factor_mean]).T
+	mean_matrix = np.repeat(factor_mean_t, dimension[factor_id], axis=1)
+	factor_var = np.dot(fmlist[factor_id].T - mean_matrix, (fmlist[factor_id].T - mean_matrix).T)
 
 	#print factor_var
+
+
 
 	# cov_matrix
 	'''
@@ -744,8 +758,8 @@ if __name__ == '__main__':
 	print "now start preparing the data..."
 	#-> prepare the "dataset" and "markerset"		TODO: markerset is not properly loaded
 	#-> prepare the initialized factor matrices (PCA), and their mean/cov as the MVN prior
-	load_dataset()
-	#load_dataset_real()
+	#load_dataset()
+	load_dataset_real()	# NOTE: and also fill in the dimension
 	print "finish data preparation..."
 
 
@@ -783,12 +797,13 @@ if __name__ == '__main__':
 
 
 
+
 	##==============================
 	##==== sampler calling iteration
 	##==============================
 	start_time = timeit.default_timer()
 
-	ITER = 400
+	ITER = 1
 	ll_result = []
 	for i in range(ITER):
 		print "@@@@current iteration#",

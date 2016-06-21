@@ -1,5 +1,5 @@
 library(pcaMethods)
-n_factor <- 40  # TODO
+n_factor <- 400  # TODO
 for (k in 0:(n_factor-1)){
   print(paste("Working on factor #", k))
   data = read.table(paste("./result/temp/f", toString(k), "_tissue_indiv.txt", sep=""))

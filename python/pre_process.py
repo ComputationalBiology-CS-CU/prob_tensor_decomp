@@ -249,6 +249,23 @@ if __name__ == '__main__':
 	## we have:
 	#Data = []
 	#list_gene = []
+	print "now we are picking up a subset (or all) of all the genes..."
+	rep_gene_chr22 = {}
+	rep_gene_all = {}
+	file = open("./data_raw/gene_tss.txt", 'r')
+	while 1:
+		line = (file.readline()).strip()
+		if not line:
+			break
+
+		line = line.split('\t')
+		gene = line[0]
+		chr = line[1]
+		rep_gene_all[gene] = 1
+		if chr == '22':
+			rep_gene_chr22[gene] = 1
+	file.close()
+
 	Data_null = []
 	list_gene_final = []
 	for i in range(len(Data)):
@@ -256,14 +273,23 @@ if __name__ == '__main__':
 		rpkm_list = Data[i]
 		if check_null(rpkm_list):
 			continue
-		else:
-			list_gene_final.append(gene)
-			Data_null.append(rpkm_list)
+		#if gene not in rep_gene_chr22:		# TODO: or whole gene
+		#	continue
+		list_gene_final.append(gene)
+		Data_null.append(rpkm_list)
 	list_gene = np.array(list_gene_final)
 	## NOTE
 	np.save("./data_processed/Gene_list.npy", list_gene)
 	print "# of genes:",
 	print len(list_gene)
+	Data_null = np.array(Data_null)
+	print "shape of the data matrix:",
+	print Data_null.shape
+
+
+
+
+
 
 
 
@@ -383,7 +409,7 @@ if __name__ == '__main__':
 	print len(list_sample_all)
 
 	Data = Data_norm.T
-	np.save("./data_processed/Data", Data)
+	np.save("./data_raw/Data", Data)
 	print "shape of Data matrix:",
 	print Data.shape
 
