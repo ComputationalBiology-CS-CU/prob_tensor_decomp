@@ -20,7 +20,7 @@ import timeit
 from sklearn.decomposition import PCA
 
 
-n_factor = 400		# TODO: to decide
+n_factor = 40		# TODO: to decide
 n_tissue = 0
 n_individual = 0
 n_gene = 0
@@ -50,6 +50,7 @@ def get_individual_id(s):
 
 
 if __name__ == "__main__":
+
 
 
 	######## SESSION I ########
@@ -164,9 +165,9 @@ if __name__ == "__main__":
 	print len(Y2[0])
 
 	##==== save PCA results (two matrices, for coefficient matrix and factor matrix; and also the sample_list)
-	np.save("./data_processed/pca_sample", Y1)
-	np.save("./data_processed/pca_gene", Y2)
-	np.save("./data_processed/pca_variance", variance)
+	#np.save("./data_processed/pca_sample", Y1)
+	#np.save("./data_processed/pca_gene", Y2)
+	#np.save("./data_processed/pca_variance", variance)
 	print "saving the .npy data done..."
 
 	np.save("./data_processed/Gene", Y2)
@@ -234,6 +235,13 @@ if __name__ == "__main__":
 
 
 
+
+
+
+
+
+
+
 	######## SESSION II ########
 	factor_tissue = []
 	factor_indiv = []
@@ -270,6 +278,8 @@ if __name__ == "__main__":
 
 	np.save("./data_processed/Tissue", factor_tissue)
 	np.save("./data_processed/Individual", factor_indiv)
+
+
 
 
 

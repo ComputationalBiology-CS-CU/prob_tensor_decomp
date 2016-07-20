@@ -10,6 +10,9 @@
 ##  5. ...
 
 
+## Jul.19: MVN doesn't work on real data, need to re-model
+
+
 
 ##===============
 ##==== libraries

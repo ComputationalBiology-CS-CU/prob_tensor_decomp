@@ -71,8 +71,11 @@ if __name__=="__main__":
 
 
 
+
 	#gene_loading = np.load('result/simu_gene_100.npy')
-	gene_loading = np.load('data/Gene_100.npy')
+	fm_loading = np.load('result/fm_f40/result_Gene.npy')			# TODO
+	#y_label = np.load('result/real_f40_chr22/Gene_list.npy')		# TODO
+	#x_label = np.arange(len(fm_loading[0])) + 1
 
 	'''
 	outfile = open("result/quantile_gene_c22.csv", "w")
@@ -93,13 +96,24 @@ if __name__=="__main__":
 	'''
 
 	sns.set(context="paper", font="monospace")
-	f, ax = plt.subplots(figsize=(12, 9))
-	sns_plot = sns.heatmap(gene_loading)
+	f, ax = plt.subplots(figsize=(22, 19))	# TODO
+#	f, ax = plt.subplots(figsize=(26, 9))
+	
+	array = np.zeros(40)
+	#sns_plot = sns.heatmap(fm_loading, xticklabels=x_label, yticklabels=y_label)
+	sns_plot = sns.heatmap(fm_loading)
+	ax.set_xlabel('Factors')
+	ax.set_ylabel('Genes')			# TODO
+#	plt.yticks(rotation=0)
+#	plt.show()
+
 	fig = sns_plot.get_figure()
 	#fig.savefig("plot/quantile_c22_gene.jpg")
 	#fig.savefig("/Users/shuoyang/Desktop/fm_gene.jpg")
-	fig.savefig("/Users/shuoyang/Desktop/fm_gene_init.jpg")
+	fig.savefig("/Users/shuoyang/Desktop/fm_heatmap.jpg")
 
+
+	print "done..."
 
 
 

@@ -160,11 +160,22 @@ if __name__ == '__main__':
 		sample_tissue_rep[sample] = tissue
 	file.close()
 
+
+
 	## fill in the eQTL_tissue rep
+	## NOTE: we need to remove duplicated individuals for each tissue
+	rep_temp = {}
+	for tissue in eQTL_tissue:
+		rep_temp[tissue] = {}
 	for sample in sample_list:
 		tissue = sample_tissue_rep[sample]
 		if tissue in eQTL_tissue:
-			eQTL_tissue[tissue].append(sample)
+			individual = get_individual_id(sample)
+			if individual not in rep_temp[tissue]:
+				eQTL_tissue[tissue].append(sample)
+				rep_temp[tissue][individual] = 1
+
+
 
 	# save the rep
 	file = open("./data_raw/phs000424.v6.pht002743.v6.p1.c1.GTEx_Sample_Attributes.GRU.txt_tissue_sample_rep", 'w')
@@ -189,6 +200,7 @@ if __name__ == '__main__':
 		for sample in line:
 			sample_rep[sample] = 1
 	file.close()
+
 
 	# save all the individuals (in order)
 	individual_rep = {}
@@ -244,7 +256,7 @@ if __name__ == '__main__':
 
 
 	##======================================================================================================
-	##==== remove all the NULL genes as defined (testing for all samples)
+	##==== remove all the NULL genes as defined (testing for all samples), and also pick up genes
 	##======================================================================================================
 	## we have:
 	#Data = []
@@ -273,8 +285,8 @@ if __name__ == '__main__':
 		rpkm_list = Data[i]
 		if check_null(rpkm_list):
 			continue
-		#if gene not in rep_gene_chr22:		# TODO: or whole gene
-		#	continue
+		if gene not in rep_gene_chr22:		# TODO: or whole gene
+			continue
 		list_gene_final.append(gene)
 		Data_null.append(rpkm_list)
 	list_gene = np.array(list_gene_final)
@@ -304,8 +316,8 @@ if __name__ == '__main__':
 	## the following several normalization methods:
 	normal_quantile = 0
 	normal_log = 0
-	normal_z = 0
-	normal_Gaussian_rank = 1
+	normal_z = 1
+	normal_Gaussian_rank = 0
 
 	Data_norm = []
 

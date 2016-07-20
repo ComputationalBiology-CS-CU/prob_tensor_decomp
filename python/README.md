@@ -1,3 +1,5 @@
+# 1. Structure
+
 This is the Python version of the program (without sparsity prior).
 
 This folder contains all the scripts developed by Shuo, Chuqiao, Mengqing (timely order).
@@ -11,6 +13,7 @@ Currently used scripts:
 5. plot\_pca.py
 6. plot\_loglike.py
 7. plot\_fm\_heatmap.py
+8. sampler\_mw\_2.py (tensor decomposition Gibbs sampler; non-MVN)
 
 In terms of gene expression data preprocessing, we will base on the results after the first gene expression processing stage of [this](https://github.com/morrisyoung/eQTL_v6_script) project, and pick up tissue samples from specified tissues (brain; I will manually specify this file), and prepare the input for the training program. The training program needs the following input:
 
@@ -38,5 +41,15 @@ The processing script is named as "pre\_process.py" (extracting the samples, rm 
 4. gene\_tss.txt
 
 In terms of initializing the Individual factor matrix and the Tissue factor matrix, we will do the PCA on Sample x Gene matrix, and then re-construct the Tissue x Individual x Factor tensor from the Sample factor matrix. For this small tensor, for each factor (assuming they are independent in initialization), we will do incomplete PCA with R script "pre\_init.R". We need to download "fX\_tissue\_indiv.txt" data from cluster "./data\_inter/" to local "./result/temp/", and the script will generate "fX\_tissue.txt" and "fX\_indiv.txt" in the same location. Then we can upload these two source data into cluster "./data\_inter/", and then run the second session of "pre\_init.py". By now we should have done all the initialization.
+
+
+
+# 2. Tensor2 (Jul.19)
+
+Since the MVN couldn't converge on real data, I will try non-MVN prior on the decomposition (see more details in docs). This is still promising, since this is part of Spike and Slab prior, and also we can try other priors on the model.
+
+Script: sampler\_mw\_2.py
+
+This phase is called tensor2 (for codes and docs).
 
 

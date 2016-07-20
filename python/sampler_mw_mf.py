@@ -26,11 +26,12 @@ import timeit
 ##=====================
 ##==== global variables
 ##=====================
-n_factor = 40
-n_individual = 100	#NOTE mw: 1066
-n_gene = 2000		#NOTE mw: 585
-n_tissue = 30
+# the following will be updated
+n_factor = 0
+n_individual = 0	#NOTE mw: 1066
+n_gene = 0		#NOTE mw: 585
 dimension = (n_individual, n_gene)
+
 factor_name = {}
 dataset = np.zeros(shape=dimension) # individual x gene x tissue
 markerset = np.ones(shape=dimension) # mark the position where there are data
@@ -39,12 +40,10 @@ individual_rep = {}
 fmlist = []
 prior1 = []		# 0: mean array; 1: precision matrix
 prior2 = []		# as above
-prior3 = []		# as above
 prior = []
 
 hyper_prior1 = []	# 0: xxx; 1: xxx; 2: xxx; 3: xxx
 hyper_prior2 = []	# as above
-hyper_prior3 = []	# as above
 hyper_prior = []
 
 alpha = 0		# the precision of the final observation
@@ -70,6 +69,7 @@ def get_individual_id(s):
 
 	return id
 
+'''
 def cal_product(i, j):
 	global n_factor
 	global fmlist
@@ -78,6 +78,15 @@ def cal_product(i, j):
 	for count in range(n_factor):
 		product += fmlist[0][i][count] * fmlist[1][j][count]
 	return product
+'''
+def cal_product(i, j):
+	global n_factor
+	global fmlist
+
+	product = np.inner(fmlist[0][i], fmlist[1][j])
+	return product
+
+
 
 def factor_combination(dataset, fmlist, dim_depth, n_factor, fm_depth, prod, path):
 	if fm_depth==len(fmlist):
@@ -103,12 +112,11 @@ def load_dataset():
 	global prior3
 	global prior
 
-	#global dimension
-	#global n_factor
+	global n_factor
+	global n_individual
+	global n_gene
+	global dimension
 
-	#== load tensor (matrix) data						# TODO: to load incomplete tensor, and also the markerset
-	dataset = np.load("data/Tensor.npy")
-	print dataset.shape
 
 	#== load fmlist from simulated data
 	#fmlist.append(np.load('data/real_individual_brain_c22_quantile.npy'))		NOTE mw
@@ -118,15 +126,25 @@ def load_dataset():
 	## load data as above, instead of the following
 	#prod = np.ones(n_factor)
 	#factor_combination(dataset, fmlist, dimension, n_factor, 0, prod, [])
+	#== global variable init
+	n_factor = len(fmlist[0][0])
+	n_individual = len(fmlist[0])
+	n_gene = len(fmlist[1])
+	dimension = (n_individual, n_gene)
+
+	#== load tensor (matrix) data
+	dataset = np.load("data/Tensor.npy")
+	markerset = np.ones(dimension)
+	print "dataset and markerset dimension:"
+	print dataset.shape
+	print markerset.shape
 
 	#== load mean and cov (sample) for MVN prior; we use sample mean and cov as the init for this prior
 	prior1 = []
 	prior2 = []
-	prior3 = []
 	prior = []
 	prior.append(prior1)
 	prior.append(prior2)
-	prior.append(prior3)
 	for n in range(2):
 		mean = np.array(np.mean(fmlist[n], axis = 0))
 		cov = np.cov(fmlist[n], rowvar=0)
@@ -151,7 +169,6 @@ def sampler_MVN(mean, cov):
 def sampler_W(df, scale):
 	sample = wishart.rvs(df, scale, size=1, random_state=None)
 	return sample
-
 
 ##==== sampling from Gamma, for the variance
 def sampler_Gamma(para1, para2):
@@ -238,7 +255,6 @@ def sampler_factor(factor_id):
 		cov = inv(precision_matrix)
 		mean = np.dot(prior[factor_id][0], prior[factor_id][1])
 
-
 		for j in range(dimension1):
 			hash_temp = {factor_id: i, ids[0]: j}
 			index1 = hash_temp[0]
@@ -289,6 +305,8 @@ def sampler_factor(factor_id):
 	print factor_var
 	'''
 	# mw
+	## NOTE: update
+	'''
 	factor_mean = [0] * n_factor
 	for i in range(dimension[factor_id]):
 		for j in range(n_factor):
@@ -296,6 +314,8 @@ def sampler_factor(factor_id):
 
 	for i in range(n_factor):
 		factor_mean[i] = factor_mean[i] * 1.0 / dimension[factor_id]
+	'''
+	factor_mean = np.mean(fmlist[factor_id], axis=0)
 
 	factor_mean_t = np.array([factor_mean]).T
 	mean_matrix = np.repeat(factor_mean_t, dimension[factor_id], axis=1)
@@ -402,17 +422,27 @@ def loglike_Gaussian(obs, mean, var):
 	return like_log
 
 
-##==== log likelihood for multivariate Gaussian, TODO: removed constant terms
+##==== log likelihood for multivariate Gaussian, NOTE: removed constant terms
 def loglike_MVN(obs, mean, precision):
 	#
 	like_log = 0
 
 	# precision term
 	cov = inv(precision)
-	cov_norm = LA.norm(cov)
-	like_log += (- 0.5 * math.log(cov_norm))
+	## NOTE
+	#cov_norm = LA.norm(cov)
+	#like_log += (- 0.5 * math.log(cov_norm))
+	'''
+	cov_det = LA.det(cov)
+	like_log += (- 0.5 * math.log(cov_det))
+	'''
+	cov_log_det = LA.slogdet(cov)[1]
+	like_log += (- 0.5 * cov_log_det)
+
 
 	# distance term
+	## NOTE: update
+	'''
 	array1 = map(lambda x1,x2: x1-x2, obs, mean)
 	array2 = []
 	for i in range(n_factor):
@@ -424,6 +454,11 @@ def loglike_MVN(obs, mean, precision):
 	temp = 0
 	for i in range(n_factor):
 		temp += array1[i] * array2[i]
+	'''
+	diff = obs - mean
+	temp = np.dot(diff, precision)
+	temp = np.dot(temp, diff)
+
 	like_log += (- 0.5 * temp)
 	return like_log
 
@@ -445,7 +480,7 @@ def loglike_GW(obs1, obs2, scale, df, mean, scaler):
 	return like_log
 
 
-##==== log likelihood for Gamma, TODO: removed the constant terms
+##==== log likelihood for Gamma, NOTE: removed the constant terms
 def loglike_Gamma(obs, para1, para2):
 	like_log = 0
 	like_log += (para1 - 1) * math.log(obs)
@@ -464,7 +499,6 @@ def loglike_joint():
 
 	like_log = 0
 
-
 	#==== observation likelihood
 	for i in range(n_individual):
 		for j in range(n_gene):
@@ -475,35 +509,45 @@ def loglike_joint():
 			mean = cal_product(i, j)
 			var = 1.0 / alpha
 			like_log += loglike_Gaussian(obs, mean, var)
-	print "gaussian: " + str(like_log)
+	print "gaussian:"
+	print like_log
+
 
 	#print "LL is ",like_log
 
+
 	#==== factor matrix likelihood
+	##====
 	a = 0
 	for i in range(n_individual):
 		a += loglike_MVN(fmlist[0][i], prior[0][0], prior[0][1])
 	like_log += a
-	print "mvn_individual: " + str(a)
-	#for j in range(n_gene):
-	#	like_log += loglike_MVN(fm[1][j], prior[1][0], prior[1][1])
+	print "mvn_individual:",
+	print a
+
+	##====
 	a = 0
-	for k in range(n_gene):
-		a += loglike_MVN(fmlist[1][k], prior[1][0], prior[1][1])
+	for j in range(n_gene):
+		a += loglike_MVN(fmlist[1][j], prior[1][0], prior[1][1])
 	like_log += a
-	print "mvn_gene: " + str(a)
+	print "mvn_gene:",
+	print a
+
+
 
 	#==== factor prior likelihood
 	a = 0
 	for i in range(2):
 		a += loglike_GW(prior[i][0], prior[i][1], hyper_prior[i][0], hyper_prior[i][1], hyper_prior[i][2], hyper_prior[i][3])
 	like_log += a
-	print "gw: " + str(a)
+	print "gw:",
+	print a
 
 	#==== precision/variance likelihood
 	a = loglike_Gamma(alpha, alpha_prior[0], alpha_prior[1])
 	like_log += a
-	print "gamma: " + str(a)
+	print "gamma:",
+	print a
 
 
 	return like_log
@@ -536,17 +580,30 @@ if __name__ == '__main__':
 	#== set the hyper-prior
 	hyper_prior1 = []
 	hyper_prior2 = []
-	hyper_prior3 = []
 	hyper_prior = []
 	hyper_prior.append(hyper_prior1)
 	hyper_prior.append(hyper_prior2)
-	hyper_prior.append(hyper_prior3)
-	for n in range(3):
+	'''
+	for n in range(2):
 		# 4 parts here: scale matrix, df, mean, scaler of the precision matrix
 		hyper_prior[n].append(np.load("data/precision.npy"))    # lambda
 		hyper_prior[n].append(np.int(np.load("data/v.npy")))		# TODO: tunable   v_0
 		hyper_prior[n].append(np.load("data/mu.npy"))		# TODO: tunable	 mu_0
 		hyper_prior[n].append(np.int(np.load("data/kappa.npy")))		# TODO: tunable  kappa_0
+	'''
+	for n in range(2):
+		mu = np.zeros(n_factor)
+		kappa = 2
+		precision = np.identity(n_factor)
+		v = n_factor			# TODO: greater than or equal to n_factor
+
+		# 4 parts here: scale matrix, df, mean, scaler of the precision matrix
+		hyper_prior[n].append(precision)    				# lambda
+		hyper_prior[n].append(v)        				# TODO: tunable   v_0
+		hyper_prior[n].append(mu)					# TODO: tunable  mu_0
+		hyper_prior[n].append(kappa)					# TODO: tunable  kappa_0
+
+
 
 
 	#== set the prior for precision (Gamma)
@@ -568,21 +625,34 @@ if __name__ == '__main__':
 	##==============================
 	start_time = timeit.default_timer()
 
-	ITER = 30
+	ITER = 200
 	ll_result = []
 	for i in range(ITER):
 		print "current iteration#",
 		print i+1
+
+		#==== factor matrix (and prior)
+		print "@@sample factors..."
 		for j in range(2):
+			start = timeit.default_timer()
 			print "sampling factor#",
 			print j+1
-			#print "..."
 			sampler_factor(j)
-		#print "sample precision..."
+			print "Time elapsed for sampling this factor is ", timeit.default_timer() - start
+
+		#==== precision
+		print "@@sample precision..."
+		start = timeit.default_timer()
 		sampler_precision()
+		print "Time elapsed for sampling precision is ", timeit.default_timer() - start
+
+		#==== loglike
+		print "@@calculate logolike..."
+		start = timeit.default_timer()
 		like_log = loglike_joint()	# monitor the log joint likelihood
 		print "sampling done. the log joint likelihood is",
 		print like_log
+		print "Time elapsed for cal loglike is ", timeit.default_timer() - start
 
 		# log the factor/loading matrix
 		#np.save("result/ind_loading_brain_c22_quantile", fmlist[0])		NOTE mw
@@ -600,6 +670,7 @@ if __name__ == '__main__':
 	for ele in ll_result:
 		fo.write(str(ele)+"\n")
 	fo.close()
+
 
 
 
