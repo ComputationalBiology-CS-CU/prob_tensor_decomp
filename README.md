@@ -1,3 +1,5 @@
+**NOTE**: This project is out of maintenance. See [here](https://github.com/morrisyoung/Bayesian_prob_tensor_decomp) for the current dev pool.
+
 # prob_tensor_decomp
 
 We will implement the CP decomposition, with Spike and Slab sparsity prior.

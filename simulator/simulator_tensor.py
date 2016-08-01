@@ -27,9 +27,9 @@ pattern_indiv = re.compile(r'^(\w)+([\-])(\w)+')
 ##==== global variables
 ##=====================
 n_factor = 40			# TODO: this is tunable, and the number 400 comes from results of other more complex methods; 40 is for one chr
+n_tissue = 15			# the same magnitude
 n_individual = 100		# the same magnitude
-n_gene = 2000			# 10% of the original
-n_tissue = 30			# the same magnitude
+n_gene = 600			# 10% of the original
 '''
 #The following parameters need to be determined by test-and-trials
 #According to Barbara, they used alpha=beta=1 for the uniform on sparsity
@@ -152,10 +152,10 @@ if __name__ == '__main__':
 	normalWishart[2] = precision
 	normalWishart[3] = n_factor		# TODO: greater than or equal to n_factor
 
-	np.save("./para_data/mu", normalWishart[0])
-	np.save("./para_data/kappa", normalWishart[1])
-	np.save("./para_data/precision", normalWishart[2])
-	np.save("./para_data/v", normalWishart[3])
+	np.save("./data/mu", normalWishart[0])
+	np.save("./data/kappa", normalWishart[1])
+	np.save("./data/precision", normalWishart[2])
+	np.save("./data/v", normalWishart[3])
 
 
 
@@ -170,12 +170,12 @@ if __name__ == '__main__':
 	cov = inv(precisionMatrix_scaled)
 	mu = sampler_MVN(normalWishart[0], cov)
 	#
-	np.save("./para_data/Mu_indiv", mu)
-	np.save("./para_data/Lambda_indiv", precisionMatrix)
+	np.save("./data/Mu_indiv", mu)
+	np.save("./data/Lambda_indiv", precisionMatrix)
 	#
 	cov = inv(precisionMatrix)
 	U = simulator_MVN(mu, cov, n_individual)
-	np.save("./para_data/Individual", U)
+	np.save("./data/Individual", U)
 
 	print "individual factor matrix:",
 	print len(U), len(U[0])
@@ -187,12 +187,12 @@ if __name__ == '__main__':
 	cov = inv(precisionMatrix_scaled)
 	mu = sampler_MVN(normalWishart[0], cov)
 	#
-	np.save("./para_data/Mu_gene", mu)
-	np.save("./para_data/Lambda_gene", precisionMatrix)
+	np.save("./data/Mu_gene", mu)
+	np.save("./data/Lambda_gene", precisionMatrix)
 	#
 	cov = inv(precisionMatrix)
 	V = simulator_MVN(mu, cov, n_gene)
-	np.save("./para_data/Gene", V)
+	np.save("./data/Gene", V)
 
 	print "gene factor matrix:",
 	print len(V), len(V[0])
@@ -204,12 +204,12 @@ if __name__ == '__main__':
 	cov = inv(precisionMatrix_scaled)
 	mu = sampler_MVN(normalWishart[0], cov)
 	#
-	np.save("./para_data/Mu_tissue", mu)
-	np.save("./para_data/Lambda_tissue", precisionMatrix)
+	np.save("./data/Mu_tissue", mu)
+	np.save("./data/Lambda_tissue", precisionMatrix)
 	#
 	cov = inv(precisionMatrix)
 	W = simulator_MVN(mu, cov, n_tissue)
-	np.save("./para_data/Tissue", W)
+	np.save("./data/Tissue", W)
 
 	print "tissue factor matrix:",
 	print len(W), len(W[0])
@@ -246,7 +246,7 @@ if __name__ == '__main__':
 			array_gene = np.array(V[j])
 			factor_tissue = array_tissue[j]
 			tensor += factor_tissue * np.outer(array_indiv, array_gene)
-		np.save("./para_data/Tensor_tissue_" + str(i), tensor)
+		np.save("./data/Tensor_tissue_" + str(i), tensor)
 
 		print "tissue#",
 		print i,

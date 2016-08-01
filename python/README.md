@@ -44,7 +44,7 @@ In terms of initializing the Individual factor matrix and the Tissue factor matr
 
 
 
-# 2. Tensor2 (Jul.19)
+# 2. Tensor2 (from Jul.19)
 
 Since the MVN couldn't converge on real data, I will try non-MVN prior on the decomposition (see more details in docs). This is still promising, since this is part of Spike and Slab prior, and also we can try other priors on the model.
 

@@ -1,0 +1,9 @@
+# gitignore
+data/*
+result/*
+plot/*
+
+
+*.pyc
+*.npy
+

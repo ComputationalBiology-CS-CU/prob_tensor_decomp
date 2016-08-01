@@ -10,6 +10,7 @@
 ##  5. ...
 
 
+
 ## Jul.19: MVN doesn't work on real data, need to re-model
 
 
@@ -382,6 +383,7 @@ def sampler_Gamma(para1, para2):
 	return x[0]
 
 
+"""
 def sampler_factor_helper(dataset, markerset, fmlist, dim_depth, n_factor, prod, path, factor_id, precision_matrix):
 	if fm_depth==len(fmlist):
 		if markerset[tuple(path)] == 0:
@@ -399,6 +401,7 @@ def sampler_factor_helper(dataset, markerset, fmlist, dim_depth, n_factor, prod,
 		path.append(dim_depth[factor_id])
 		factor_combination(dataset, fmlist, dim_depth, n_factor, fm_depth+1, prod, path, factor_id, precision_matrix)
 		path.pop()
+"""
 
 
 

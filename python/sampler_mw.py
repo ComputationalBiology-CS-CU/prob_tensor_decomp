@@ -1043,8 +1043,8 @@ if __name__ == '__main__':
 	print "now start preparing the data..."
 	#-> prepare the "dataset" and "markerset"		TODO: markerset is not properly loaded
 	#-> prepare the initialized factor matrices (PCA), and their mean/cov as the MVN prior
-	#load_dataset_simu()		# NOTE: load the simulated dataset
-	load_dataset_real()		# NOTE: and also fill in the dimension
+	load_dataset_simu()		# NOTE: load the simulated dataset
+	#load_dataset_real()		# NOTE: and also fill in the dimension
 	print "finish data preparation..."
 
 
@@ -1142,6 +1142,20 @@ if __name__ == '__main__':
 		np.save("result/fm_tissue", fmlist[0])
 		np.save("result/fm_indiv", fmlist[1])
 		np.save("result/fm_gene", fmlist[2])
+
+
+
+		# NOTE: save the MVN
+		np.save("result/prior_indiv_mean", prior[0][0])
+		np.save("result/prior_indiv_precision", prior[0][1])
+
+		np.save("result/prior_gene_mean", prior[1][0])
+		np.save("result/prior_gene_precision", prior[1][1])
+
+		np.save("result/prior_tissue_mean", prior[2][0])
+		np.save("result/prior_tissue_precision", prior[2][1])
+
+
 
 		ll_result.append(like_log)
 

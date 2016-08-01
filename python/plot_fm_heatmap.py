@@ -1,6 +1,7 @@
 import seaborn as sns
 import numpy as np
 import matplotlib.pyplot as plt
+from numpy.linalg import inv
 
 
 
@@ -9,7 +10,7 @@ n_factor = 40
 
 
 
-if __name__=="__main__":
+if __name__== "__main__":
 
 
 
@@ -73,7 +74,18 @@ if __name__=="__main__":
 
 
 	#gene_loading = np.load('result/simu_gene_100.npy')
-	fm_loading = np.load('result/fm_f40/result_Gene.npy')			# TODO
+	#fm_loading = np.load('result/fm_f40/result_Gene.npy')			# TODO
+	fm_loading = np.load('result/temp/Individual.npy')		# TODO
+#	fm_loading = inv(fm_loading)
+	cov = np.cov(fm_loading, rowvar=0)
+#	fm_loading = cov
+
+	precision = np.array(inv(cov))
+	fm_loading = precision
+
+
+
+
 	#y_label = np.load('result/real_f40_chr22/Gene_list.npy')		# TODO
 	#x_label = np.arange(len(fm_loading[0])) + 1
 
@@ -103,7 +115,7 @@ if __name__=="__main__":
 	#sns_plot = sns.heatmap(fm_loading, xticklabels=x_label, yticklabels=y_label)
 	sns_plot = sns.heatmap(fm_loading)
 	ax.set_xlabel('Factors')
-	ax.set_ylabel('Genes')			# TODO
+	ax.set_ylabel('Individuals')			# TODO
 #	plt.yticks(rotation=0)
 #	plt.show()
 
@@ -114,6 +126,7 @@ if __name__=="__main__":
 
 
 	print "done..."
+
 
 
 
